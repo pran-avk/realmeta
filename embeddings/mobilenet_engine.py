@@ -1,60 +1,28 @@
 """
-MobileNetV2 Image Recognition Engine
-Lightweight alternative to CLIP - optimized for free tier hosting
-Uses transfer learning with MobileNetV2 for artwork image matching
+Ultra-Lightweight Image Recognition Engine
+Uses Perceptual Hashing + Color Histograms for artwork matching
+Perfect for free tier hosting - only uses Pillow + numpy (no ML frameworks)
+Fast, efficient, and accurate enough for artwork identification
 """
 import numpy as np
 from PIL import Image
 import io
 import logging
+import imagehash
 
 logger = logging.getLogger('artscope')
 
-# Lazy loading to save memory
-_model = None
-_preprocess = None
 
-def load_model():
-    """Load MobileNetV2 model (lazy loading)"""
-    global _model, _preprocess
-    
-    if _model is None:
-        try:
-            from tensorflow.keras.applications import MobileNetV2
-            from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-            from tensorflow.keras.preprocessing import image as keras_image
-            
-            logger.info("Loading MobileNetV2 model...")
-            
-            # Load pre-trained MobileNetV2 without top layer (for feature extraction)
-            _model = MobileNetV2(
-                weights='imagenet',
-                include_top=False,
-                pooling='avg',  # Global average pooling
-                input_shape=(224, 224, 3)
-            )
-            
-            _preprocess = preprocess_input
-            
-            logger.info("✅ MobileNetV2 model loaded successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to load MobileNetV2: {str(e)}")
-            raise
-    
-    return _model, _preprocess
-
-
-def preprocess_image(img, target_size=(224, 224)):
+def preprocess_image(img, target_size=(256, 256)):
     """
-    Preprocess image for MobileNetV2
+    Preprocess image for feature extraction
     
     Args:
-        img: PIL Image or image file path
-        target_size: Target image size (224x224 for MobileNetV2)
+        img: PIL Image, image file path, or bytes
+        target_size: Target image size for consistency
     
     Returns:
-        Preprocessed numpy array
+        PIL Image (preprocessed)
     """
     try:
         # Load image if path is provided
@@ -67,91 +35,221 @@ def preprocess_image(img, target_size=(224, 224)):
         if img.mode != 'RGB':
             img = img.convert('RGB')
         
-        # Resize image
+        # Resize for consistency
         img = img.resize(target_size, Image.Resampling.LANCZOS)
         
-        # Convert to numpy array
-        img_array = np.array(img)
-        
-        # Expand dimensions to match model input (1, 224, 224, 3)
-        img_array = np.expand_dims(img_array, axis=0)
-        
-        # Preprocess for MobileNetV2
-        _, preprocess_fn = load_model()
-        img_array = preprocess_fn(img_array)
-        
-        return img_array
+        return img
         
     except Exception as e:
         logger.error(f"Image preprocessing failed: {str(e)}")
         raise
 
 
-def generate_embedding(image_input):
+def generate_perceptual_hash(image_input):
     """
-    Generate embedding vector for an image using MobileNetV2
+    Generate perceptual hash for an image
+    Robust to minor variations (lighting, angle, compression)
     
     Args:
         image_input: PIL Image, image file path, or bytes
     
     Returns:
-        numpy array: 1280-dimensional feature vector
+        str: Hex string representation of hash
     """
     try:
-        # Load model
-        model, _ = load_model()
+        img = preprocess_image(image_input)
         
-        # Preprocess image
-        img_array = preprocess_image(image_input)
+        # Compute multiple hash types for robustness
+        phash = imagehash.phash(img, hash_size=16)  # Perceptual hash
+        dhash = imagehash.dhash(img, hash_size=16)  # Difference hash
+        whash = imagehash.whash(img, hash_size=16)  # Wavelet hash
         
-        # Generate embedding
-        embedding = model.predict(img_array, verbose=0)
+        # Combine hashes into a single string
+        combined = f"{phash}|{dhash}|{whash}"
         
-        # Flatten to 1D array
-        embedding = embedding.flatten()
+        return combined
         
-        # Normalize (L2 normalization)
-        norm = np.linalg.norm(embedding)
-        if norm > 0:
-            embedding = embedding / norm
+    except Exception as e:
+        logger.error(f"Perceptual hash generation failed: {str(e)}")
+        raise
+
+
+def generate_color_histogram(image_input, bins=32):
+    """
+    Generate color histogram for an image
+    Captures color distribution (good for artworks)
+    
+    Args:
+        image_input: PIL Image, image file path, or bytes
+        bins: Number of bins per channel
+    
+    Returns:
+        numpy array: Flattened histogram (bins * 3 dimensions)
+    """
+    try:
+        img = preprocess_image(image_input)
+        img_array = np.array(img)
         
-        return embedding
+        # Compute histogram for each RGB channel
+        hist_r = np.histogram(img_array[:,:,0], bins=bins, range=(0, 256))[0]
+        hist_g = np.histogram(img_array[:,:,1], bins=bins, range=(0, 256))[0]
+        hist_b = np.histogram(img_array[:,:,2], bins=bins, range=(0, 256))[0]
+        
+        # Concatenate and normalize
+        hist = np.concatenate([hist_r, hist_g, hist_b])
+        hist = hist / hist.sum()  # Normalize to probability distribution
+        
+        return hist
+        
+    except Exception as e:
+        logger.error(f"Color histogram generation failed: {str(e)}")
+        raise
+
+
+def generate_embedding(image_input):
+    """
+    Generate combined feature vector (embedding) for an image
+    Uses perceptual hash + color histogram
+    
+    Args:
+        image_input: PIL Image, image file path, or bytes
+    
+    Returns:
+        dict: {'hash': str, 'histogram': numpy array}
+    """
+    try:
+        # Generate perceptual hash
+        phash = generate_perceptual_hash(image_input)
+        
+        # Generate color histogram
+        histogram = generate_color_histogram(image_input)
+        
+        # Return combined features
+        return {
+            'hash': phash,
+            'histogram': histogram.tolist()  # Convert to list for JSON serialization
+        }
         
     except Exception as e:
         logger.error(f"Embedding generation failed: {str(e)}")
         raise
 
 
-def compute_similarity(embedding1, embedding2):
+def compute_hash_similarity(hash1, hash2):
     """
-    Compute cosine similarity between two embeddings
+    Compute similarity between two perceptual hashes
     
     Args:
-        embedding1: First embedding vector
-        embedding2: Second embedding vector
+        hash1: Hash string (format: "phash|dhash|whash")
+        hash2: Hash string (format: "phash|dhash|whash")
     
     Returns:
         float: Similarity score (0-1, higher is more similar)
     """
     try:
-        # Convert to numpy arrays if needed
-        emb1 = np.array(embedding1)
-        emb2 = np.array(embedding2)
+        # Parse hashes
+        p1, d1, w1 = hash1.split('|')
+        p2, d2, w2 = hash2.split('|')
         
-        # Normalize if not already normalized
-        norm1 = np.linalg.norm(emb1)
-        norm2 = np.linalg.norm(emb2)
+        # Compute Hamming distances (lower is more similar)
+        pdist = imagehash.hex_to_hash(p1) - imagehash.hex_to_hash(p2)
+        ddist = imagehash.hex_to_hash(d1) - imagehash.hex_to_hash(d2)
+        wdist = imagehash.hex_to_hash(w1) - imagehash.hex_to_hash(w2)
         
-        if norm1 > 0:
-            emb1 = emb1 / norm1
-        if norm2 > 0:
-            emb2 = emb2 / norm2
+        # Average distance
+        avg_dist = (pdist + ddist + wdist) / 3
         
-        # Compute cosine similarity
-        similarity = np.dot(emb1, emb2)
+        # Convert to similarity (0-1, where 1 is identical)
+        # Max distance is 256 (16x16 hash), so normalize
+        similarity = 1 - (avg_dist / 256)
         
-        # Ensure result is between 0 and 1
-        similarity = (similarity + 1) / 2  # Convert from [-1, 1] to [0, 1]
+        return max(0.0, min(1.0, similarity))
+        
+    except Exception as e:
+        logger.error(f"Hash similarity computation failed: {str(e)}")
+        return 0.0
+
+
+def compute_histogram_similarity(hist1, hist2):
+    """
+    Compute similarity between two color histograms
+    
+    Args:
+        hist1: Histogram array
+        hist2: Histogram array
+    
+    Returns:
+        float: Similarity score (0-1, higher is more similar)
+    """
+    try:
+        h1 = np.array(hist1)
+        h2 = np.array(hist2)
+        
+        # Normalize if needed
+        if h1.sum() > 0:
+            h1 = h1 / h1.sum()
+        if h2.sum() > 0:
+            h2 = h2 / h2.sum()
+        
+        # Compute correlation (histogram intersection)
+        intersection = np.minimum(h1, h2).sum()
+        
+        return float(intersection)
+        
+    except Exception as e:
+        logger.error(f"Histogram similarity computation failed: {str(e)}")
+        return 0.0
+
+
+def compute_similarity(embedding1, embedding2):
+    """
+    Compute combined similarity between two embeddings
+    Weighted combination of hash and histogram similarity
+    
+    Args:
+        embedding1: First embedding dict
+        embedding2: Second embedding dict
+    
+    Returns:
+        float: Similarity score (0-1, higher is more similar)
+    """
+    try:
+        # Extract features
+        if isinstance(embedding1, dict):
+            hash1 = embedding1.get('hash', '')
+            hist1 = embedding1.get('histogram', [])
+        else:
+            # Legacy format (just histogram)
+            hash1 = ''
+            hist1 = embedding1
+        
+        if isinstance(embedding2, dict):
+            hash2 = embedding2.get('hash', '')
+            hist2 = embedding2.get('histogram', [])
+        else:
+            # Legacy format (just histogram)
+            hash2 = ''
+            hist2 = embedding2
+        
+        # Compute hash similarity (60% weight)
+        hash_sim = 0.0
+        if hash1 and hash2:
+            hash_sim = compute_hash_similarity(hash1, hash2)
+        
+        # Compute histogram similarity (40% weight)
+        hist_sim = 0.0
+        if len(hist1) > 0 and len(hist2) > 0:
+            hist_sim = compute_histogram_similarity(hist1, hist2)
+        
+        # Weighted average
+        if hash1 and hash2 and len(hist1) > 0 and len(hist2) > 0:
+            similarity = 0.6 * hash_sim + 0.4 * hist_sim
+        elif hash1 and hash2:
+            similarity = hash_sim
+        elif len(hist1) > 0 and len(hist2) > 0:
+            similarity = hist_sim
+        else:
+            similarity = 0.0
         
         return float(similarity)
         
@@ -160,13 +258,13 @@ def compute_similarity(embedding1, embedding2):
         return 0.0
 
 
-def find_similar_artworks(query_image, artwork_embeddings, threshold=0.7, top_k=5):
+def find_similar_artworks(query_image, artwork_embeddings, threshold=0.70, top_k=5):
     """
     Find artworks similar to the query image
     
     Args:
         query_image: Image to search for (PIL Image, path, or bytes)
-        artwork_embeddings: Dict of {artwork_id: embedding_vector}
+        artwork_embeddings: Dict of {artwork_id: embedding}
         threshold: Minimum similarity threshold (0-1)
         top_k: Number of top results to return
     
@@ -199,15 +297,14 @@ def find_similar_artworks(query_image, artwork_embeddings, threshold=0.7, top_k=
 
 # Singleton instance
 class MobileNetEngine:
-    """Singleton wrapper for MobileNetV2 engine"""
+    """Lightweight image recognition engine (no ML required)"""
     
     def __init__(self):
-        self.model = None
-        self.preprocess = None
+        logger.info("✅ Lightweight image engine initialized (no ML loading needed)")
     
     def initialize(self):
-        """Initialize the model (call once at startup)"""
-        self.model, self.preprocess = load_model()
+        """Initialize (instant - no models to load)"""
+        pass
     
     def generate_embedding(self, image_input):
         """Generate embedding for an image"""
@@ -217,10 +314,10 @@ class MobileNetEngine:
         """Compute similarity between embeddings"""
         return compute_similarity(emb1, emb2)
     
-    def find_similar(self, query_image, artwork_embeddings, threshold=0.7, top_k=5):
+    def find_similar(self, query_image, artwork_embeddings, threshold=0.70, top_k=5):
         """Find similar artworks"""
         return find_similar_artworks(query_image, artwork_embeddings, threshold, top_k)
 
 
-# Global instance
+# Global instance (instant initialization)
 mobilenet_engine = MobileNetEngine()
