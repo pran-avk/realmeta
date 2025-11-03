@@ -1,7 +1,10 @@
 """
-Celery Tasks for Asynchronous Processing
+Background Tasks for Asynchronous Processing
+NOTE: Celery is DISABLED for free tier deployment (no Redis available)
+These functions are kept for future use when Redis/Celery becomes available.
 """
-from celery import shared_task
+# Celery disabled - importing would fail without celery package
+# from celery import shared_task
 from django.utils import timezone
 from django.conf import settings
 import logging
@@ -9,83 +12,58 @@ import logging
 logger = logging.getLogger('artscope')
 
 
-@shared_task(bind=True, max_retries=3)
-def generate_artwork_embedding(self, artwork_id: str):
+# @shared_task(bind=True, max_retries=3)
+def generate_artwork_embedding(artwork_id: str):
     """
-    Generate embedding for an artwork asynchronously
+    Generate embedding for an artwork
+    NOTE: Embedding generation DISABLED (requires PyTorch/CLIP and Celery)
     
     Args:
         artwork_id: UUID of the artwork
     """
     try:
         from core.models import Artwork, SystemLog
-        from embeddings.engine import embedding_engine
         
         artwork = Artwork.objects.get(id=artwork_id)
         
-        # Generate embedding
-        embedding = embedding_engine.generate_embedding(artwork.image.path)
+        logger.info(f"Embedding generation skipped for artwork: {artwork.title} (feature disabled)")
         
-        # Save to database
-        artwork.embedding = embedding.tolist()
-        artwork.embedding_generated_at = timezone.now()
-        artwork.save(update_fields=['embedding', 'embedding_generated_at'])
-        
-        logger.info(f"Embedding generated for artwork: {artwork.title}")
-        
-        # Log success
+        # Log that embedding is disabled
         SystemLog.objects.create(
             log_type='embedding_generation',
-            message=f'Embedding generated successfully for artwork: {artwork.title}',
+            message=f'Embedding generation skipped for artwork: {artwork.title} (feature disabled)',
             metadata={
                 'artwork_id': str(artwork.id),
                 'artwork_title': artwork.title,
-                'task_id': self.request.id
+                'status': 'disabled'
             }
         )
         
-        return f"Embedding generated for {artwork.title}"
+        return f"Embedding generation disabled for {artwork.title}"
         
     except Exception as e:
-        logger.error(f"Error generating embedding for artwork {artwork_id}: {e}")
-        
-        # Retry logic
-        try:
-            self.retry(exc=e, countdown=60 * (self.request.retries + 1))
-        except Exception as retry_exc:
-            logger.error(f"Max retries reached for artwork {artwork_id}: {retry_exc}")
-            
-            # Log failure
-            SystemLog.objects.create(
-                log_type='error',
-                message=f'Failed to generate embedding after retries',
-                metadata={
-                    'artwork_id': str(artwork_id),
-                    'error': str(e),
-                    'retries': self.request.retries
-                }
-            )
+        logger.error(f"Error in embedding function for artwork {artwork_id}: {e}")
         raise
 
 
-@shared_task
+# @shared_task
 def batch_generate_embeddings(artwork_ids: list):
     """
     Batch generate embeddings for multiple artworks
+    NOTE: DISABLED - requires Celery
     
     Args:
         artwork_ids: List of artwork UUIDs
     """
-    for artwork_id in artwork_ids:
-        generate_artwork_embedding.delay(artwork_id)
-    
-    return f"Queued {len(artwork_ids)} embeddings for generation"
+    logger.info(f"Batch embedding generation disabled for {len(artwork_ids)} artworks")
+    return f"Embedding generation disabled"
 
 
-@shared_task
+# @shared_task
 def cleanup_old_sessions():
     """
     Clean up old visitor sessions based on data retention policy
+    NOTE: DISABLED - requires Celery scheduled tasks
     """
     try:
         from core.models import Museum, VisitorSession
@@ -111,10 +89,11 @@ def cleanup_old_sessions():
         raise
 
 
-@shared_task
+# @shared_task
 def aggregate_analytics():
     """
     Aggregate analytics data for dashboard (runs daily)
+    NOTE: DISABLED - requires Celery scheduled tasks
     """
     try:
         from analytics.utils import calculate_museum_analytics
@@ -130,10 +109,11 @@ def aggregate_analytics():
         raise
 
 
-@shared_task
+# @shared_task
 def update_artwork_counters():
     """
     Update denormalized counters on Artwork model
+    NOTE: DISABLED - requires Celery scheduled tasks
     """
     try:
         from core.models import Artwork, ArtworkInteraction
@@ -160,26 +140,21 @@ def update_artwork_counters():
         raise
 
 
-@shared_task
+# @shared_task
 def process_visitor_feedback():
     """
     Process visitor feedback and calculate sentiment scores
+    NOTE: DISABLED - requires Celery scheduled tasks
     """
     try:
         from core.models import VisitorFeedback
-        from textblob import TextBlob
+        # TextBlob not installed - sentiment analysis disabled
+        # from textblob import TextBlob
         
         feedback_items = VisitorFeedback.objects.filter(sentiment_score__isnull=True)
         
-        for feedback in feedback_items:
-            if feedback.comment:
-                # Analyze sentiment
-                blob = TextBlob(feedback.comment)
-                feedback.sentiment_score = blob.sentiment.polarity
-                feedback.save(update_fields=['sentiment_score'])
-        
-        logger.info(f"Processed sentiment for {feedback_items.count()} feedback items")
-        return "Feedback processing completed"
+        logger.info(f"Sentiment analysis disabled for {feedback_items.count()} feedback items")
+        return "Feedback processing disabled"
         
     except Exception as e:
         logger.error(f"Error processing feedback: {e}")
