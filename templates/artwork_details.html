@@ -156,6 +156,121 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
+        /* Video Player Styles */
+        .media-section {
+            margin-bottom: 24px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .video-player {
+            width: 100%;
+            height: auto;
+            min-height: 250px;
+            display: block;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .video-overlay.hidden {
+            display: none;
+        }
+
+        .play-overlay-btn {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .play-overlay-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        /* Audio Player Styles */
+        .audio-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 12px;
+        }
+
+        .audio-player {
+            width: 100%;
+            margin-bottom: 16px;
+            border-radius: 8px;
+        }
+
+        .audio-controls {
+            text-align: center;
+        }
+
+        .audio-control-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .audio-control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .audio-progress {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .audio-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .audio-time {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
         .tags {
             display: flex;
             flex-wrap: wrap;
@@ -348,11 +463,52 @@
             </div>
         </div>
 
-        <div class="media-buttons">
-            <button class="media-btn" id="audio-btn" onclick="playAudio()">
+        <!-- Video Player (360° Support) -->
+        <div class="media-section" id="video-section" style="display: none;">
+            <div class="section-title">🎥 360° Experience</div>
+            <div class="video-container">
+                <video id="video-player" class="video-player" controls playsinline>
+                    <source id="video-source" src="" type="video/mp4">
+                    Your browser doesn't support video playback.
+                </video>
+                <div class="video-overlay" id="video-overlay">
+                    <button class="play-overlay-btn" onclick="playVideo()">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="white">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Player -->
+        <div class="media-section" id="audio-section" style="display: none;">
+            <div class="section-title">🔊 Audio Narration</div>
+            <div class="audio-container">
+                <audio id="audio-player" class="audio-player" controls>
+                    <source id="audio-source" src="" type="audio/mpeg">
+                    Your browser doesn't support audio playback.
+                </audio>
+                <div class="audio-controls">
+                    <button class="audio-control-btn" onclick="toggleAudio()">
+                        <span id="audio-icon">▶️</span> <span id="audio-status">Play Audio Guide</span>
+                    </button>
+                    <div class="audio-progress">
+                        <div class="audio-progress-bar" id="audio-progress-bar"></div>
+                    </div>
+                    <div class="audio-time">
+                        <span id="audio-current">0:00</span> / <span id="audio-duration">0:00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Media Toggle Buttons -->
+        <div class="media-buttons" id="media-buttons">
+            <button class="media-btn" id="audio-btn" onclick="showAudioPlayer()">
                 🔊 Audio Guide
             </button>
-            <button class="media-btn secondary" id="video-btn" onclick="play360Video()">
+            <button class="media-btn secondary" id="video-btn" onclick="showVideoPlayer()">
                 🎥 360° View
             </button>
         </div>
@@ -426,6 +582,8 @@
         let artworkData = null;
         let selectedReaction = null;
         let sessionId = sessionStorage.getItem('artscope_session_id');
+        let audioPlayer = null;
+        let videoPlayer = null;
 
         // Load artwork data
         window.addEventListener('load', () => {
@@ -433,11 +591,58 @@
             if (dataStr) {
                 artworkData = JSON.parse(dataStr);
                 displayArtwork();
+                initializeMediaPlayers();
             } else {
                 alert('No artwork data found');
                 window.location.href = '/scanner/';
             }
         });
+
+        function initializeMediaPlayers() {
+            audioPlayer = document.getElementById('audio-player');
+            videoPlayer = document.getElementById('video-player');
+
+            // Audio player event listeners
+            if (audioPlayer) {
+                audioPlayer.addEventListener('timeupdate', updateAudioProgress);
+                audioPlayer.addEventListener('loadedmetadata', () => {
+                    document.getElementById('audio-duration').textContent = formatTime(audioPlayer.duration);
+                });
+                audioPlayer.addEventListener('play', () => {
+                    document.getElementById('audio-icon').textContent = '⏸️';
+                    document.getElementById('audio-status').textContent = 'Pause Audio';
+                });
+                audioPlayer.addEventListener('pause', () => {
+                    document.getElementById('audio-icon').textContent = '▶️';
+                    document.getElementById('audio-status').textContent = 'Play Audio Guide';
+                });
+            }
+
+            // Video player event listeners
+            if (videoPlayer) {
+                videoPlayer.addEventListener('play', () => {
+                    document.getElementById('video-overlay').classList.add('hidden');
+                });
+                videoPlayer.addEventListener('pause', () => {
+                    // Optionally show overlay again
+                });
+            }
+        }
+
+        function updateAudioProgress() {
+            if (audioPlayer) {
+                const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                document.getElementById('audio-progress-bar').style.width = progress + '%';
+                document.getElementById('audio-current').textContent = formatTime(audioPlayer.currentTime);
+            }
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
 
         function displayArtwork() {
             const artwork = artworkData.artwork;
@@ -476,12 +681,27 @@
                 });
             }
             
-            // Show/hide media buttons
-            if (!artwork.audio_narration) {
+            // Setup media players
+            const hasAudio = artwork.audio_narration && artwork.audio_narration !== '';
+            const hasVideo = artwork.video_360 && artwork.video_360 !== '';
+
+            if (hasAudio) {
+                document.getElementById('audio-source').src = artwork.audio_narration;
+                audioPlayer.load();
+            } else {
                 document.getElementById('audio-btn').style.display = 'none';
             }
-            if (!artwork.video_360) {
+
+            if (hasVideo) {
+                document.getElementById('video-source').src = artwork.video_360;
+                videoPlayer.load();
+            } else {
                 document.getElementById('video-btn').style.display = 'none';
+            }
+
+            // Hide media buttons section if no media
+            if (!hasAudio && !hasVideo) {
+                document.getElementById('media-buttons').style.display = 'none';
             }
             
             // Load recommendations
@@ -489,6 +709,47 @@
             
             // Log interaction
             logInteraction('view_details');
+        }
+
+        function showVideoPlayer() {
+            document.getElementById('video-section').style.display = 'block';
+            document.getElementById('audio-section').style.display = 'none';
+            document.getElementById('media-buttons').style.display = 'none';
+            
+            // Pause audio if playing
+            if (audioPlayer && !audioPlayer.paused) {
+                audioPlayer.pause();
+            }
+
+            logInteraction('view_video');
+        }
+
+        function showAudioPlayer() {
+            document.getElementById('audio-section').style.display = 'block';
+            document.getElementById('video-section').style.display = 'none';
+            document.getElementById('media-buttons').style.display = 'none';
+            
+            // Pause video if playing
+            if (videoPlayer && !videoPlayer.paused) {
+                videoPlayer.pause();
+            }
+
+            logInteraction('view_audio');
+        }
+
+        function playVideo() {
+            document.getElementById('video-overlay').classList.add('hidden');
+            videoPlayer.play();
+            logInteraction('play_video');
+        }
+
+        function toggleAudio() {
+            if (audioPlayer.paused) {
+                audioPlayer.play();
+                logInteraction('play_audio');
+            } else {
+                audioPlayer.pause();
+            }
         }
 
         function displayRecommendations() {
@@ -579,20 +840,6 @@
                 });
             } catch (error) {
                 console.error('Log interaction error:', error);
-            }
-        }
-
-        function playAudio() {
-            if (artworkData.artwork.audio_narration) {
-                window.open(artworkData.artwork.audio_narration, '_blank');
-                logInteraction('play_audio');
-            }
-        }
-
-        function play360Video() {
-            if (artworkData.artwork.video_360) {
-                window.open(artworkData.artwork.video_360, '_blank');
-                logInteraction('watch_video');
             }
         }
 

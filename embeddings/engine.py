@@ -1,5 +1,6 @@
 """
-Advanced Image Embedding Engine using CLIP
+Optional Advanced Image Embedding Engine using CLIP
+(Not required - perceptual hashing is the primary recognition method)
 Supports multiple models and caching for performance
 """
 try:
@@ -37,10 +38,11 @@ class EmbeddingEngine:
         return cls._instance
     
     def _initialize(self):
-        """Initialize CLIP model (lazy loading)"""
+        """Initialize CLIP model (lazy loading) - Optional, falls back to perceptual hashing"""
         if self._model is None:
             if not CLIP_AVAILABLE:
-                logger.warning("CLIP not available. Install torch and CLIP for AI features: pip install torch torchvision && pip install git+https://github.com/openai/CLIP.git")
+                # CLIP is optional - we use perceptual hashing as the primary method
+                logger.info("Using perceptual hashing for image recognition (no ML models needed)")
                 return
             
             try:
@@ -59,7 +61,7 @@ class EmbeddingEngine:
     def generate_embedding(self, image_path: str) -> np.ndarray:
         """
         Generate 512-dimensional embedding for an image
-        Returns None if CLIP is not available
+        Returns None if CLIP is not available (falls back to perceptual hashing)
         
         Args:
             image_path: Path to the image file
@@ -68,7 +70,7 @@ class EmbeddingEngine:
             numpy array of shape (512,) or None if CLIP not available
         """
         if not CLIP_AVAILABLE or self._model is None:
-            logger.warning(f"CLIP not available - cannot generate embedding for {image_path}")
+            # Perceptual hashing is used instead - no warning needed
             return None
             
         try:

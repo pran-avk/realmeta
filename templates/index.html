@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ArtScope - Discover Stories Beyond the Frame</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -12,21 +13,49 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --primary-dark: #0a0e27;
+            --primary-medium: #1a1f3a;
+            --accent-gold: #c9a961;
+            --accent-purple: #6366f1;
+            --accent-deep-purple: #4f46e5;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-800: #1f2937;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23380E1F"/><stop offset="100%" style="stop-color:%232B0A1A"/></linearGradient></defs><rect width="800" height="800" fill="url(%23bg)"/></svg>') center/cover;
-            background-color: #2B0A1A;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--primary-dark);
+            color: white;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Hero Section */
+        .hero {
+            position: relative;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            position: relative;
             overflow: hidden;
         }
 
-        /* Museum Art Background */
-        body::before {
+        .hero-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .hero-background::before {
             content: '';
             position: absolute;
             top: 0;
@@ -34,572 +63,650 @@
             right: 0;
             bottom: 0;
             background: 
-                linear-gradient(rgba(43, 10, 26, 0.8), rgba(43, 10, 26, 0.9)),
-                url('https://images.unsplash.com/photo-1582555172866-f73bb12a2ab3?q=80&w=1920') center/cover;
-            z-index: 0;
+                linear-gradient(135deg, rgba(10, 14, 39, 0.95) 0%, rgba(26, 31, 58, 0.85) 100%);
+            z-index: 2;
         }
 
-        .container {
-            max-width: 440px;
+        .hero-background img {
             width: 100%;
-            text-align: center;
-            position: relative;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.4;
+            filter: blur(2px);
+            transform: scale(1.1);
+            animation: slowZoom 30s ease-in-out infinite alternate;
+        }
+
+        @keyframes slowZoom {
+            0% { transform: scale(1.1); }
+            100% { transform: scale(1.2); }
+        }
+
+        /* Floating Particles */
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index: 1;
+            overflow: hidden;
         }
 
-        /* Logo */
-        .logo {
-            font-size: 48px;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 15px;
-            letter-spacing: 1px;
-            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: rgba(201, 169, 97, 0.6);
+            border-radius: 50%;
+            animation: float 8s ease-in-out infinite;
         }
 
-        .logo-underline {
-            width: 100px;
-            height: 4px;
-            background: linear-gradient(90deg, #FFA500 0%, #FF8C00 100%);
-            margin: 0 auto 50px;
-            border-radius: 2px;
+        .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 10s; }
+        .particle:nth-child(2) { left: 20%; animation-delay: 2s; animation-duration: 12s; }
+        .particle:nth-child(3) { left: 30%; animation-delay: 1s; animation-duration: 9s; }
+        .particle:nth-child(4) { left: 40%; animation-delay: 3s; animation-duration: 11s; }
+        .particle:nth-child(5) { left: 50%; animation-delay: 1.5s; animation-duration: 10.5s; }
+        .particle:nth-child(6) { left: 60%; animation-delay: 2.5s; animation-duration: 13s; }
+        .particle:nth-child(7) { left: 70%; animation-delay: 0.5s; animation-duration: 9.5s; }
+        .particle:nth-child(8) { left: 80%; animation-delay: 3.5s; animation-duration: 11.5s; }
+        .particle:nth-child(9) { left: 90%; animation-delay: 1.2s; animation-duration: 10.2s; }
+
+        @keyframes float {
+            0%, 100% { 
+                transform: translateY(100vh) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.8;
+                transform: translateY(90vh) scale(1);
+            }
+            90% {
+                opacity: 0.8;
+                transform: translateY(10vh) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(0) scale(0);
+            }
         }
 
-        /* Camera Icon */
-        .camera-icon {
+        /* Hero Content */
+        .hero-content {
+            position: relative;
+            z-index: 3;
+            text-align: center;
+            max-width: 900px;
+            padding: 2rem;
+            animation: fadeInUp 1.2s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(60px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo-symbol {
             width: 120px;
             height: 120px;
-            background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%);
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, var(--accent-gold) 0%, #d4b876 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 40px;
-            box-shadow: 0 10px 40px rgba(255, 165, 0, 0.4);
-            animation: pulse 2s infinite;
+            box-shadow: 
+                0 20px 60px rgba(201, 169, 97, 0.4),
+                0 0 0 20px rgba(201, 169, 97, 0.1),
+                0 0 0 40px rgba(201, 169, 97, 0.05);
+            animation: pulse 3s ease-in-out infinite, rotate 20s linear infinite;
+            position: relative;
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 10px 40px rgba(255, 165, 0, 0.4); }
-            50% { transform: scale(1.05); box-shadow: 0 15px 50px rgba(255, 165, 0, 0.6); }
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 
+                    0 20px 60px rgba(201, 169, 97, 0.4),
+                    0 0 0 20px rgba(201, 169, 97, 0.1),
+                    0 0 0 40px rgba(201, 169, 97, 0.05);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 
+                    0 25px 70px rgba(201, 169, 97, 0.5),
+                    0 0 0 25px rgba(201, 169, 97, 0.15),
+                    0 0 0 50px rgba(201, 169, 97, 0.08);
+            }
         }
 
-        .camera-icon svg {
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .logo-symbol svg {
             width: 60px;
             height: 60px;
             fill: white;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
         }
 
-        /* Heading */
-        h1 {
-            font-size: 32px;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 10px;
-            line-height: 1.3;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        .brand-name {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(3rem, 8vw, 5rem);
+            font-weight: 900;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-gold) 0%, #e8d4a0 50%, var(--accent-gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+            text-shadow: 0 10px 30px rgba(201, 169, 97, 0.3);
+            animation: shimmer 3s ease-in-out infinite;
+            background-size: 200% auto;
         }
 
-        .subtitle {
-            font-size: 16px;
-            color: rgba(255, 255, 255, 0.8);
-            margin-bottom: 40px;
-            line-height: 1.6;
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
         }
 
-        /* Start Button */
-        .start-btn {
-            width: 100%;
-            padding: 18px;
-            background: linear-gradient(90deg, #FFA500 0%, #FF8C00 100%);
-            border: none;
-            border-radius: 50px;
-            color: white;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 30px rgba(255, 165, 0, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+        .hero-subtitle {
+            font-size: clamp(1.5rem, 3vw, 2rem);
+            font-weight: 300;
+            margin-bottom: 1.5rem;
+            color: rgba(255, 255, 255, 0.95);
+            line-height: 1.4;
+            animation: fadeInUp 1.2s ease-out 0.3s both;
         }
 
-        .start-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 40px rgba(255, 165, 0, 0.5);
-        }
-
-        .start-btn:active {
-            transform: translateY(0);
-        }
-
-        /* Museum Link */
-        .museum-link {
-            margin-top: 30px;
-            padding-top: 30px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .museum-link p {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-            margin-bottom: 15px;
-        }
-
-        .museum-link a {
-            display: inline-block;
-            padding: 12px 30px;
-            border: 2px solid rgba(255, 165, 0, 0.5);
-            border-radius: 30px;
-            color: #FFA500;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .museum-link a:hover {
-            background: rgba(255, 165, 0, 0.1);
-            border-color: #FFA500;
-            transform: translateY(-2px);
-        }
-
-        /* Footer */
-        .footer {
-            margin-top: 30px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        /* Welcome Modal */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(5px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 20px;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-        }
-
-        .modal {
-            background: linear-gradient(135deg, rgba(100, 60, 130, 0.95), rgba(80, 50, 110, 0.95));
-            border-radius: 30px;
-            padding: 50px 40px;
-            max-width: 480px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            position: relative;
-        }
-
-        .modal-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 30px;
-            font-size: 50px;
-        }
-
-        .modal h2 {
-            font-size: 28px;
-            color: #8B9FFF;
-            margin-bottom: 20px;
-            font-weight: 700;
-        }
-
-        .modal p {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 15px;
-            line-height: 1.6;
-            margin-bottom: 30px;
-        }
-
-        .modal-btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(90deg, #7B8CFF 0%, #6B7CFF 100%);
-            border: none;
-            border-radius: 12px;
-            color: white;
-            font-size: 17px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 20px;
-        }
-
-        .modal-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(123, 140, 255, 0.4);
-        }
-
-        .privacy-note {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
-            text-align: left;
-            margin-top: 20px;
-        }
-
-        .privacy-note svg {
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .privacy-note p {
-            font-size: 12px;
+        .hero-description {
+            font-size: clamp(1rem, 2vw, 1.125rem);
+            line-height: 1.8;
             color: rgba(255, 255, 255, 0.7);
-            margin: 0;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            animation: fadeInUp 1.2s ease-out 0.6s both;
         }
 
-        .privacy-note strong {
-            color: #FFD700;
+        /* CTA Buttons */
+        .cta-group {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 1.2s ease-out 0.9s both;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 1.25rem 2.5rem;
+            font-size: 1.125rem;
             font-weight: 600;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Logo -->
-        <div class="logo">ArtScope</div>
-        <div class="logo-underline"></div>
-
-        <!-- Camera Icon -->
-        <div class="camera-icon">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                <circle cx="12" cy="12" r="3"/>
-            </svg>
-        </div>
-
-        <!-- Heading -->
-        <h1>Discover Stories<br>Beyond the Frame</h1>
-        
-        <p class="subtitle">
-            Point your camera at any artwork to uncover its hidden history.
-        </p>
-
-        <!-- Start Button -->
-        <button class="start-btn" onclick="startScanning()">
-            Start Scanning
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-        </button>
-
-        <!-- Museum Staff Link -->
-        <div class="museum-link">
-            <p>Museum Staff?</p>
-            <a href="/register/">🏛️ Register Your Museum</a>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            By continuing, you agree to anonymous analytics collection
-        </div>
-    </div>
-
-    <!-- Welcome Modal -->
-    <div class="modal-overlay active" id="welcomeModal">
-        <div class="modal">
-            <div class="modal-icon">🎨</div>
-            <h2>Welcome to the Gallery Guide</h2>
-            <p>
-                Unlock the stories behind the art. Simply point your camera at a painting to learn more. No account needed.
-            </p>
-            <button class="modal-btn" onclick="acceptAndStart()">Start Scanning</button>
-            
-            <div class="privacy-note">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-                <p>
-                    <strong>Help Us Improve Your Experience</strong><br>
-                    We collect anonymous data about which artworks are scanned to enhance your museum experience.
-                </p>
-            </div>
-
-            <div style="margin-top: 25px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.1);">
-                <p style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 12px;">Museum Staff?</p>
-                <a href="/register/" style="display: inline-block; padding: 10px 24px; border: 2px solid rgba(139, 159, 255, 0.5); border-radius: 20px; color: #8B9FFF; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.3s ease;">
-                    🏛️ Register Your Museum
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function acceptAndStart() {
-            // Hide modal
-            document.getElementById('welcomeModal').classList.remove('active');
-            // Start scanning
-            startScanning();
-        }
-
-        function startScanning() {
-            // Create session and redirect to scanner
-            fetch('/api/sessions/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    analytics_consent: true
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                sessionStorage.setItem('artscope_session_id', data.id);
-                window.location.href = '/scanner/';
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                window.location.href = '/scanner/';
-            });
-        }
-    </script>
-</body>
-</html>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .container {
-            max-width: 480px;
-            width: 100%;
-            padding: 20px;
-        }
-
-        .welcome-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: 40px 30px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .hero-image {
-            width: 100%;
-            height: 250px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-            border-radius: 16px;
-            margin-bottom: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            border: none;
+            position: relative;
             overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 400px;
+            height: 400px;
+        }
+
+        .btn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-gold) 0%, #d4b876 100%);
+            color: var(--primary-dark);
+            box-shadow: 
+                0 10px 40px rgba(201, 169, 97, 0.4),
+                0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-4px);
+            box-shadow: 
+                0 20px 50px rgba(201, 169, 97, 0.5),
+                0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-4px);
+        }
+
+        /* Scroll Indicator */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 3rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+            40% { transform: translateX(-50%) translateY(-20px); }
+            60% { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        .scroll-indicator svg {
+            width: 32px;
+            height: 32px;
+            stroke: rgba(255, 255, 255, 0.5);
+            animation: fadeInOut 2s ease-in-out infinite;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Features Section */
+        .features {
+            padding: 8rem 2rem;
+            background: linear-gradient(180deg, var(--primary-dark) 0%, var(--primary-medium) 100%);
             position: relative;
         }
 
-        .hero-image::before {
+        .features::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, transparent 70%);
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(201, 169, 97, 0.5), transparent);
         }
 
-        .hero-icon {
-            font-size: 80px;
-            opacity: 0.8;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
-        h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 12px;
+        .section-header {
             text-align: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin-bottom: 5rem;
+        }
+
+        .section-label {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            background: rgba(201, 169, 97, 0.1);
+            border: 1px solid rgba(201, 169, 97, 0.3);
+            border-radius: 50px;
+            color: var(--accent-gold);
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, white 0%, rgba(255, 255, 255, 0.7) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
-        .subtitle {
-            text-align: center;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 30px;
+        .section-description {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.6);
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.8;
         }
 
-        .btn-primary {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 12px;
-            color: white;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        /* Feature Cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
-        }
-
-        .privacy-section {
+        .feature-card {
             background: rgba(255, 255, 255, 0.03);
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 2rem;
+            padding: 3rem;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
 
-        .privacy-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 12px;
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(201, 169, 97, 0.1) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(201, 169, 97, 0.3);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--accent-gold) 0%, #d4b876 100%);
+            border-radius: 1.5rem;
             display: flex;
             align-items: center;
-            gap: 8px;
-        }
-
-        .privacy-text {
-            font-size: 14px;
-            line-height: 1.6;
-            color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 8px;
-        }
-
-        .privacy-list {
-            list-style: none;
-            padding-left: 0;
-        }
-
-        .privacy-list li {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
-            padding: 6px 0;
-            padding-left: 24px;
+            justify-content: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            box-shadow: 0 10px 30px rgba(201, 169, 97, 0.3);
             position: relative;
+            z-index: 1;
         }
 
-        .privacy-list li::before {
-            content: '✓';
-            position: absolute;
-            left: 0;
-            color: #667eea;
-            font-weight: bold;
-        }
-
-        .btn-secondary {
-            width: 100%;
-            padding: 14px;
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
+        .feature-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.75rem;
+            font-weight: 700;
             color: white;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 12px;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
         }
 
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.3);
+        .feature-description {
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.8;
+            font-size: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Staff Section */
+        .staff-section {
+            padding: 6rem 2rem;
+            background: var(--primary-medium);
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .staff-card {
+            max-width: 500px;
+            margin: 3rem auto 0;
+            padding: 2.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 2rem;
+            transition: all 0.4s ease;
+        }
+
+        .staff-card:hover {
+            border-color: rgba(201, 169, 97, 0.3);
+            transform: scale(1.02);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 3rem 2rem;
+            background: var(--primary-dark);
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .footer-text {
-            text-align: center;
-            font-size: 12px;
             color: rgba(255, 255, 255, 0.4);
-            margin-top: 30px;
+            font-size: 0.875rem;
         }
 
-        @media (max-width: 480px) {
-            .welcome-card {
-                padding: 30px 20px;
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero {
+                min-height: 90vh;
             }
 
-            h1 {
-                font-size: 28px;
+            .cta-group {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .features {
+                padding: 4rem 1.5rem;
+            }
+
+            .staff-section {
+                padding: 4rem 1.5rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="welcome-card">
-            <div class="hero-image">
-                <div class="hero-icon">🎨</div>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-background">
+            <img src="https://images.unsplash.com/photo-1499781350541-7783f6c6a0c8?q=80&w=2400" alt="Museum Background">
+        </div>
+        
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+
+        <div class="hero-content">
+            <div class="logo-symbol">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
             </div>
 
-            <h1>Welcome to the Gallery Guide</h1>
-            <p class="subtitle">
-                Unlock the stories behind the art. Simply point your camera at a painting to learn more. No account needed.
+            <h1 class="brand-name">ArtScope</h1>
+            <p class="hero-subtitle">Discover Stories Beyond the Frame</p>
+            <p class="hero-description">
+                Unlock the hidden narratives of art. Point your camera at any masterpiece to reveal its history, 
+                meaning, and the stories that make it extraordinary.
             </p>
 
-            <button class="btn-primary" onclick="startScanning()">
-                Start Scanning
-            </button>
-
-            <div class="privacy-section">
-                <div class="privacy-title">
-                    🔒 Help Us Improve Your Experience
-                </div>
-                <p class="privacy-text">
-                    We collect anonymous data about which artworks are popular to help the museum. Your privacy is protected.
-                </p>
-                <ul class="privacy-list">
-                    <li>No personal data collected</li>
-                    <li>Anonymous session tracking</li>
-                    <li>You can opt out anytime</li>
-                </ul>
-                <button class="btn-secondary" onclick="acceptAndContinue()">
-                    Accept & Continue
+            <div class="cta-group">
+                <button class="btn btn-primary" onclick="startScanning()">
+                    <span>Start Scanning</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
                 </button>
-            </div>
-
-            <p class="footer-text">
-                By continuing, you agree to anonymous analytics collection
-            </p>
-            
-            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-                <p style="color: rgba(255, 255, 255, 0.6); font-size: 14px; margin-bottom: 10px;">
-                    Museum Staff?
-                </p>
-                <a href="/register/" style="color: #667eea; text-decoration: none; font-weight: 600; display: inline-block; padding: 10px 20px; border: 1px solid #667eea; border-radius: 8px; transition: all 0.3s ease;">
-                    🏛️ Register Your Museum
+                <a href="/register/" class="btn btn-secondary">
+                    <span>Museum Registration</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
                 </a>
             </div>
         </div>
-    </div>
+
+        <div class="scroll-indicator">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M19 12l-7 7-7-7"/>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Experience</span>
+                <h2 class="section-title">A New Way to Experience Art</h2>
+                <p class="section-description">
+                    Powered by advanced image recognition and AI, ArtScope transforms your museum visit 
+                    into an interactive journey through art history.
+                </p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📸</div>
+                    <h3 class="feature-title">Instant Recognition</h3>
+                    <p class="feature-description">
+                        Simply point your camera at any artwork. Our intelligent system recognizes it instantly 
+                        using advanced image matching technology.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3 class="feature-title">Location-Aware</h3>
+                    <p class="feature-description">
+                        Geofencing ensures you can only access artwork information when you're physically present 
+                        at the museum—preserving authenticity.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🗣️</div>
+                    <h3 class="feature-title">14 Languages</h3>
+                    <p class="feature-description">
+                        Every artwork description is automatically translated into 14 languages, making art 
+                        accessible to visitors from around the world.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3 class="feature-title">Rich Narratives</h3>
+                    <p class="feature-description">
+                        Dive deep into the artist's biography, historical context, artistic techniques, 
+                        and the cultural significance of each piece.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3 class="feature-title">Privacy First</h3>
+                    <p class="feature-description">
+                        No account required. Anonymous sessions mean you explore freely while we collect 
+                        only the insights museums need.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Lightning Fast</h3>
+                    <p class="feature-description">
+                        Optimized for speed and performance. Get artwork information in milliseconds, 
+                        keeping your museum experience seamless.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Museum Staff Section -->
+    <section class="staff-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">For Museums</span>
+                <h2 class="section-title">Elevate Your Museum Experience</h2>
+                <p class="section-description">
+                    Join leading museums using ArtScope to create engaging, interactive experiences 
+                    for their visitors. Easy setup, powerful analytics, complete control.
+                </p>
+            </div>
+
+            <div class="staff-card">
+                <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1rem; color: white;">
+                    Ready to Transform Your Museum?
+                </h3>
+                <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 2rem; line-height: 1.8;">
+                    Register your museum, upload your collection, and provide visitors with an 
+                    unforgettable digital companion to their physical experience.
+                </p>
+                <a href="/register/" class="btn btn-primary">
+                    <span>🏛️ Register Your Museum</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p class="footer-text">
+                © 2025 ArtScope. Bringing art to life through technology. By continuing, you agree to anonymous analytics collection.
+            </p>
+        </div>
+    </footer>
 
     <script>
         function startScanning() {
@@ -624,9 +731,41 @@
             });
         }
 
-        function acceptAndContinue() {
-            startScanning();
-        }
+        // Smooth scroll for indicators
+        document.querySelector('.scroll-indicator')?.addEventListener('click', () => {
+            document.querySelector('.features').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // Parallax effect
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const parallax = document.querySelector('.hero-background img');
+            if (parallax) {
+                parallax.style.transform = `translateY(${scrolled * 0.5}px) scale(1.1)`;
+            }
+        });
+
+        // Intersection Observer for fade-in animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .staff-card').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+            observer.observe(el);
+        });
     </script>
 </body>
 </html>

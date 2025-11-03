@@ -739,3 +739,239 @@ def health_check(request):
         'timestamp': timezone.now().isoformat(),
         'scanning_method': 'geofencing'
     })
+
+
+# ============================================
+# NAVIGATION API ENDPOINTS
+# ============================================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def save_navigation_path(request):
+    """
+    Save a new navigation path with waypoints (Staff only)
+    """
+    from core.models import NavigationPath, NavigationWaypoint
+    
+    try:
+        data = request.data
+        museum = request.user.museum
+        
+        # Create navigation path
+        path = NavigationPath.objects.create(
+            museum=museum,
+            name=data.get('name'),
+            description=data.get('description', ''),
+            created_by=request.user
+        )
+        
+        waypoints_data = data.get('waypoints', [])
+        total_distance = 0
+        previous_waypoint = None
+        
+        for idx, wp_data in enumerate(waypoints_data):
+            # Get artwork if specified
+            artwork = None
+            if wp_data.get('artwork_id'):
+                from core.models import Artwork
+                artwork = Artwork.objects.filter(id=wp_data['artwork_id'], museum=museum).first()
+            
+            waypoint = NavigationWaypoint.objects.create(
+                museum=museum,
+                artwork=artwork,
+                latitude=wp_data['latitude'],
+                longitude=wp_data['longitude'],
+                floor_level=wp_data.get('floor_level', 1),
+                room_name=wp_data.get('room_name', ''),
+                title=wp_data['title'],
+                description=wp_data.get('description', ''),
+                voice_instruction=wp_data.get('voice_instruction', ''),
+                sequence_order=idx,
+                distance_to_next_meters=wp_data.get('distance_to_next', 0),
+                estimated_walk_seconds=wp_data.get('estimated_walk_seconds', 0),
+                created_by=request.user
+            )
+            
+            # Link to previous waypoint
+            if previous_waypoint:
+                previous_waypoint.next_waypoint = waypoint
+                previous_waypoint.save()
+                total_distance += previous_waypoint.distance_to_next_meters
+            
+            previous_waypoint = waypoint
+        
+        # Update path with total distance and waypoint sequence
+        path.total_distance_meters = total_distance
+        path.waypoint_sequence = [str(wp.id) for wp in NavigationWaypoint.objects.filter(
+            museum=museum, created_by=request.user
+        ).order_by('sequence_order')]
+        path.save()
+        
+        return Response({
+            'success': True,
+            'path_id': str(path.id),
+            'waypoint_count': len(waypoints_data),
+            'total_distance_meters': total_distance
+        })
+        
+    except Exception as e:
+        logger.error(f'Navigation path save failed: {str(e)}')
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_navigation_path(request):
+    """
+    Get navigation path to specific artwork
+    """
+    from core.models import Artwork, NavigationWaypoint, NavigationPath
+    
+    try:
+        target_artwork_id = request.query_params.get('target')
+        user_lat = float(request.query_params.get('lat'))
+        user_lon = float(request.query_params.get('lon'))
+        
+        if not target_artwork_id:
+            return Response({'error': 'target artwork_id required'}, status=400)
+        
+        artwork = get_object_or_404(Artwork, id=target_artwork_id)
+        
+        # Find waypoint closest to user's location
+        from geopy.distance import geodesic
+        nearest_waypoint = None
+        min_distance = float('inf')
+        
+        for waypoint in NavigationWaypoint.objects.filter(museum=artwork.museum, is_active=True):
+            distance = geodesic(
+                (user_lat, user_lon),
+                (float(waypoint.latitude), float(waypoint.longitude))
+            ).meters
+            
+            if distance < min_distance:
+                min_distance = distance
+                nearest_waypoint = waypoint
+        
+        # Find waypoint closest to target artwork
+        target_waypoint = None
+        if artwork.artwork_waypoints.exists():
+            target_waypoint = artwork.artwork_waypoints.first()
+        else:
+            # Find nearest waypoint to artwork
+            min_art_distance = float('inf')
+            for waypoint in NavigationWaypoint.objects.filter(museum=artwork.museum, is_active=True):
+                distance = geodesic(
+                    (float(artwork.latitude), float(artwork.longitude)),
+                    (float(waypoint.latitude), float(waypoint.longitude))
+                ).meters
+                
+                if distance < min_art_distance:
+                    min_art_distance = distance
+                    target_waypoint = waypoint
+        
+        # Build path from nearest_waypoint to target_waypoint
+        waypoints_path = []
+        current = nearest_waypoint
+        visited = set()
+        
+        while current and current != target_waypoint and current.id not in visited:
+            visited.add(current.id)
+            waypoints_path.append({
+                'id': str(current.id),
+                'title': current.title,
+                'latitude': float(current.latitude),
+                'longitude': float(current.longitude),
+                'floor_level': current.floor_level,
+                'room_name': current.room_name,
+                'description': current.description,
+                'voice_instruction': current.voice_instruction,
+                'distance_to_next_meters': current.distance_to_next_meters,
+                'estimated_walk_seconds': current.estimated_walk_seconds,
+                'video_url': current.video_360.url if current.video_360 else None,
+                'thumbnail_url': current.thumbnail.url if current.thumbnail else None,
+            })
+            current = current.next_waypoint
+        
+        # Add target waypoint
+        if target_waypoint:
+            waypoints_path.append({
+                'id': str(target_waypoint.id),
+                'title': target_waypoint.title,
+                'latitude': float(target_waypoint.latitude),
+                'longitude': float(target_waypoint.longitude),
+                'floor_level': target_waypoint.floor_level,
+                'room_name': target_waypoint.room_name,
+                'description': target_waypoint.description,
+                'voice_instruction': target_waypoint.voice_instruction,
+                'is_destination': True,
+                'video_url': target_waypoint.video_360.url if target_waypoint.video_360 else None,
+                'thumbnail_url': target_waypoint.thumbnail.url if target_waypoint.thumbnail else None,
+            })
+        
+        return Response({
+            'waypoints': waypoints_path,
+            'total_waypoints': len(waypoints_path),
+            'target_artwork': {
+                'id': str(artwork.id),
+                'title': artwork.title,
+                'artist': artwork.artist.name if artwork.artist else 'Unknown',
+                'image_url': artwork.image.url if artwork.image else None,
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f'Navigation path retrieval failed: {str(e)}')
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_nearest_waypoint(request):
+    """
+    Find nearest waypoint to user's GPS location
+    """
+    from core.models import NavigationWaypoint
+    from geopy.distance import geodesic
+    
+    try:
+        user_lat = float(request.query_params.get('lat'))
+        user_lon = float(request.query_params.get('lon'))
+        museum_id = request.query_params.get('museum_id')
+        
+        waypoints = NavigationWaypoint.objects.filter(
+            museum_id=museum_id,
+            is_active=True
+        ) if museum_id else NavigationWaypoint.objects.filter(is_active=True)
+        
+        nearest = None
+        min_distance = float('inf')
+        
+        for waypoint in waypoints:
+            distance = geodesic(
+                (user_lat, user_lon),
+                (float(waypoint.latitude), float(waypoint.longitude))
+            ).meters
+            
+            if distance < min_distance:
+                min_distance = distance
+                nearest = waypoint
+        
+        if nearest:
+            return Response({
+                'waypoint': {
+                    'id': str(nearest.id),
+                    'title': nearest.title,
+                    'latitude': float(nearest.latitude),
+                    'longitude': float(nearest.longitude),
+                    'floor_level': nearest.floor_level,
+                    'room_name': nearest.room_name,
+                    'distance_meters': round(min_distance, 2),
+                    'video_url': nearest.video_360.url if nearest.video_360 else None,
+                }
+            })
+        
+        return Response({'error': 'No waypoints found'}, status=404)
+        
+    except Exception as e:
+        logger.error(f'Nearest waypoint search failed: {str(e)}')
+        return Response({'error': str(e)}, status=500)

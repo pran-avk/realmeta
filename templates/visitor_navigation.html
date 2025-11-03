@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Museum Navigation - ArtScope</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f0f1e;
+            color: white;
+            overflow: hidden;
+        }
+
+        /* Camera View */
+        #camera-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* AR Overlay */
+        .ar-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+
+        .close-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .gps-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: rgba(16, 185, 129, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .gps-status.acquiring {
+            background: rgba(245, 158, 11, 0.9);
+        }
+
+        /* Direction Indicator */
+        .direction-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            z-index: 50;
+        }
+
+        .direction-arrow {
+            width: 100%;
+            height: 100%;
+            background: rgba(99, 102, 241, 0.3);
+            border: 4px solid rgba(99, 102, 241, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .direction-arrow::after {
+            content: '↑';
+            font-size: 64px;
+            color: #6366f1;
+            font-weight: bold;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+        }
+
+        /* Navigation Card */
+        .nav-card {
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            pointer-events: all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .nav-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .nav-subtitle {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .distance-badge {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+        }
+
+        .instruction-text {
+            font-size: 16px;
+            color: #374151;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .waypoint-preview {
+            width: 100%;
+            height: 120px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .waypoint-preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            pointer-events: all;
+        }
+
+        .nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .nav-btn.active {
+            color: #667eea;
+        }
+
+        .nav-icon {
+            font-size: 24px;
+        }
+
+        /* Arrival Celebration */
+        .arrival-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 30px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+            pointer-events: all;
+            display: none;
+        }
+
+        .arrival-modal.show {
+            display: block;
+            animation: celebrationPop 0.5s ease-out;
+        }
+
+        @keyframes celebrationPop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .celebration-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: bounce 1s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Camera Container -->
+    <div id="camera-container">
+        <video id="camera-feed" autoplay playsinline muted></video>
+
+        <!-- AR Overlay -->
+        <div class="ar-overlay">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <button class="close-btn" onclick="exitNavigation()">✕</button>
+                <div class="gps-status" id="gps-status">
+                    <span>📡</span>
+                    <span id="gps-text">GPS Acquiring...</span>
+                </div>
+            </div>
+
+            <!-- Direction Indicator -->
+            <div class="direction-indicator" id="direction-indicator">
+                <div class="direction-arrow" id="direction-arrow"></div>
+            </div>
+
+            <!-- Navigation Card -->
+            <div class="nav-card" id="nav-card">
+                <div class="nav-header">
+                    <div>
+                        <div class="nav-title" id="nav-title">Starting Navigation...</div>
+                        <div class="nav-subtitle" id="nav-subtitle">Locating your position</div>
+                    </div>
+                    <div class="distance-badge" id="distance-badge">--m</div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+                </div>
+
+                <div class="instruction-text" id="instruction-text">
+                    Please wait while we locate your position...
+                </div>
+
+                <div class="waypoint-preview" id="waypoint-preview" style="display: none;">
+                    <video id="preview-video" loop muted></video>
+                    <div class="preview-overlay">
+                        <span>👁️ Tap to view reference</span>
+                    </div>
+                </div>
+
+                <div class="nav-actions">
+                    <button class="btn btn-secondary" onclick="stopNavigation()">
+                        Stop Navigation
+                    </button>
+                    <button class="btn btn-primary" onclick="confirmArrival()" id="arrived-btn" style="display: none;">
+                        ✓ I've Arrived
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottom Navigation -->
+            <div class="bottom-nav">
+                <button class="nav-btn active" onclick="showMapView()">
+                    <div class="nav-icon">🗺️</div>
+                    <span>Map</span>
+                </button>
+                <button class="nav-btn" onclick="showARView()">
+                    <div class="nav-icon">📷</div>
+                    <span>AR View</span>
+                </button>
+                <button class="nav-btn" onclick="showPathList()">
+                    <div class="nav-icon">📋</div>
+                    <span>Steps</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Arrival Modal -->
+        <div class="arrival-modal" id="arrival-modal">
+            <div class="celebration-icon">🎉</div>
+            <h2 style="font-size: 28px; color: #1f2937; margin-bottom: 12px;">You've Arrived!</h2>
+            <p style="color: #6b7280; margin-bottom: 24px;">
+                You're now at <strong id="artwork-name">The Artwork</strong>
+            </p>
+            <button class="btn btn-primary" style="width: 100%;" onclick="scanArtwork()">
+                📸 Scan Artwork Now
+            </button>
+            <button class="btn btn-secondary" style="width: 100%; margin-top: 12px;" onclick="continueExploring()">
+                Continue Exploring
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentGPS = null;
+        let targetWaypoint = null;
+        let navigationPath = [];
+        let currentWaypointIndex = 0;
+        let cameraStream = null;
+        let sessionId = sessionStorage.getItem('artscope_session_id');
+
+        // Initialize
+        window.addEventListener('load', async () => {
+            await startCamera();
+            await startGPSTracking();
+            await loadNavigationPath();
+        });
+
+        // Start camera
+        async function startCamera() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                    audio: false
+                });
+                document.getElementById('camera-feed').srcObject = cameraStream;
+            } catch (error) {
+                console.error('Camera error:', error);
+                alert('Unable to access camera. Please grant camera permissions.');
+            }
+        }
+
+        // Start GPS tracking
+        async function startGPSTracking() {
+            if (!navigator.geolocation) {
+                alert('GPS not supported on this device');
+                return;
+            }
+
+            const gpsStatus = document.getElementById('gps-status');
+            const gpsText = document.getElementById('gps-text');
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    currentGPS = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    };
+
+                    gpsStatus.classList.remove('acquiring');
+                    gpsText.textContent = `GPS Locked (±${Math.round(currentGPS.accuracy)}m)`;
+
+                    // Update navigation
+                    updateNavigation();
+                },
+                (error) => {
+                    console.error('GPS error:', error);
+                    gpsText.textContent = 'GPS Error';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // Load navigation path (from server or session storage)
+        async function loadNavigationPath() {
+            const targetArtworkId = sessionStorage.getItem('nav_target_artwork');
+            
+            if (!targetArtworkId) {
+                // Show path selection UI
+                alert('Please select a destination artwork');
+                window.location.href = '/scanner/';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/navigation/path?target=${targetArtworkId}`);
+                const data = await response.json();
+                
+                navigationPath = data.waypoints || [];
+                currentWaypointIndex = 0;
+                
+                if (navigationPath.length > 0) {
+                    targetWaypoint = navigationPath[0];
+                    updateNavigationUI();
+                }
+            } catch (error) {
+                console.error('Error loading path:', error);
+                alert('Failed to load navigation path');
+            }
+        }
+
+        // Calculate distance between two GPS coordinates
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // Distance in meters
+        }
+
+        // Calculate bearing (direction) to target
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1) * Math.sin(φ2) -
+                Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+            
+            const θ = Math.atan2(y, x);
+            return (θ * 180 / Math.PI + 360) % 360; // Bearing in degrees
+        }
+
+        // Update navigation
+        function updateNavigation() {
+            if (!currentGPS || !targetWaypoint) return;
+
+            const distance = calculateDistance(
+                currentGPS.latitude,
+                currentGPS.longitude,
+                targetWaypoint.latitude,
+                targetWaypoint.longitude
+            );
+
+            const bearing = calculateBearing(
+                currentGPS.latitude,
+                currentGPS.longitude,
+                targetWaypoint.latitude,
+                targetWaypoint.longitude
+            );
+
+            // Update distance badge
+            document.getElementById('distance-badge').textContent = 
+                distance < 1000 ? `${Math.round(distance)}m` : `${(distance / 1000).toFixed(1)}km`;
+
+            // Rotate direction arrow
+            document.getElementById('direction-arrow').style.transform = `rotate(${bearing}deg)`;
+
+            // Check if arrived (within 5 meters)
+            if (distance < 5) {
+                onWaypointReached();
+            }
+
+            // Update progress
+            const progress = (currentWaypointIndex / navigationPath.length) * 100;
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+
+        // Update navigation UI
+        function updateNavigationUI() {
+            if (!targetWaypoint) return;
+
+            document.getElementById('nav-title').textContent = targetWaypoint.title;
+            document.getElementById('nav-subtitle').textContent = 
+                `Floor ${targetWaypoint.floor_level} - ${targetWaypoint.room_name || 'Museum'}`;
+            document.getElementById('instruction-text').textContent = 
+                targetWaypoint.voice_instruction || 'Follow the arrow to reach your destination';
+
+            // Show 360° preview if available
+            if (targetWaypoint.video_360) {
+                const preview = document.getElementById('waypoint-preview');
+                const video = document.getElementById('preview-video');
+                video.src = targetWaypoint.video_360;
+                video.play();
+                preview.style.display = 'block';
+                
+                preview.onclick = () => {
+                    // Open fullscreen 360° view
+                    video.requestFullscreen();
+                };
+            }
+        }
+
+        // Waypoint reached
+        function onWaypointReached() {
+            // Show arrival button
+            document.getElementById('arrived-btn').style.display = 'block';
+            document.getElementById('instruction-text').textContent = 
+                '🎯 You\'ve reached this waypoint! Confirm your arrival to continue.';
+        }
+
+        // Confirm arrival
+        function confirmArrival() {
+            // Move to next waypoint or finish
+            currentWaypointIndex++;
+            
+            if (currentWaypointIndex < navigationPath.length) {
+                targetWaypoint = navigationPath[currentWaypointIndex];
+                updateNavigationUI();
+                document.getElementById('arrived-btn').style.display = 'none';
+            } else {
+                // Reached final destination
+                showArrivalCelebration();
+            }
+        }
+
+        // Show arrival celebration
+        function showArrivalCelebration() {
+            const artworkName = targetWaypoint.artwork_title || 'your destination';
+            document.getElementById('artwork-name').textContent = artworkName;
+            document.getElementById('arrival-modal').classList.add('show');
+        }
+
+        // Scan artwork
+        function scanArtwork() {
+            window.location.href = '/scanner/';
+        }
+
+        // Continue exploring
+        function continueExploring() {
+            document.getElementById('arrival-modal').classList.remove('show');
+            window.location.href = '/dashboard/';
+        }
+
+        // Stop navigation
+        function stopNavigation() {
+            if (confirm('Stop navigation?')) {
+                window.location.href = '/scanner/';
+            }
+        }
+
+        // Exit navigation
+        function exitNavigation() {
+            if (confirm('Exit navigation?')) {
+                if (cameraStream) {
+                    cameraStream.getTracks().forEach(track => track.stop());
+                }
+                window.location.href = '/scanner/';
+            }
+        }
+
+        // View modes
+        function showMapView() {
+            alert('Map view coming soon!');
+        }
+
+        function showARView() {
+            alert('AR view active');
+        }
+
+        function showPathList() {
+            alert('Step list coming soon!');
+        }
+
+        // Update navigation every second
+        setInterval(updateNavigation, 1000);
+    </script>
+</body>
+</html>

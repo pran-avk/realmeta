@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Path Recorder - ArtScope</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #10b981;
+            color: white;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .status-badge.recording {
+            background: #ef4444;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .camera-container {
+            position: relative;
+            background: #000;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        #camera-feed {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.6) 100%);
+        }
+
+        .top-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .waypoint-count {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+
+        .gps-indicator {
+            background: rgba(16, 185, 129, 0.95);
+            padding: 8px 16px;
+            border-radius: 50px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .gps-indicator.acquiring {
+            background: rgba(245, 158, 11, 0.95);
+        }
+
+        .center-crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .center-crosshair::before,
+        .center-crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+        }
+
+        .center-crosshair::before {
+            top: 50%;
+            left: 20%;
+            right: 20%;
+            height: 2px;
+            transform: translateY(-50%);
+        }
+
+        .center-crosshair::after {
+            left: 50%;
+            top: 20%;
+            bottom: 20%;
+            width: 2px;
+            transform: translateX(-50%);
+        }
+
+        .bottom-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .control-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-card h3 {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .waypoint-list {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .waypoint-list h3 {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+
+        .waypoint-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .waypoint-info {
+            flex: 1;
+        }
+
+        .waypoint-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .waypoint-meta {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .waypoint-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            background: #e5e7eb;
+            color: #374151;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .icon-btn:hover {
+            background: #d1d5db;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .instructions h4 {
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        @media (max-width: 768px) {
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📍 Navigation Path Recorder</h1>
+            <p>Walk through your museum and record waypoints for visitor navigation</p>
+            <span class="status-badge" id="status-badge">
+                <span id="status-icon">●</span>
+                <span id="status-text">Ready to Start</span>
+            </span>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h4>📋 How to Record a Navigation Path:</h4>
+            <ol>
+                <li>Click "Start Recording" and allow camera access</li>
+                <li>Stand at your first waypoint (e.g., entrance)</li>
+                <li>Slowly rotate 360° to capture the surroundings</li>
+                <li>Fill in waypoint details and click "Save Waypoint"</li>
+                <li>Walk to the next location and repeat</li>
+                <li>Click "Finish Path" when done</li>
+            </ol>
+        </div>
+
+        <!-- Camera Feed -->
+        <div class="camera-container" id="camera-container" style="display: none;">
+            <video id="camera-feed" autoplay playsinline muted></video>
+            <div class="camera-overlay">
+                <div class="top-info">
+                    <div class="waypoint-count" id="waypoint-count">
+                        Waypoints: 0
+                    </div>
+                    <div class="gps-indicator" id="gps-indicator">
+                        📡 GPS Acquiring...
+                    </div>
+                </div>
+                <div class="center-crosshair"></div>
+            </div>
+        </div>
+
+        <!-- Recording Controls -->
+        <div class="control-card" id="start-controls">
+            <h3>Start Recording</h3>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="startRecording()">
+                    <span>📹</span> Start Recording Path
+                </button>
+                <button class="btn btn-danger" onclick="goBack()">
+                    <span>←</span> Back to Dashboard
+                </button>
+            </div>
+        </div>
+
+        <!-- Waypoint Form -->
+        <div class="control-card" id="waypoint-form" style="display: none;">
+            <h3>Waypoint Details</h3>
+            
+            <div class="form-group">
+                <label>Waypoint Title *</label>
+                <input type="text" id="waypoint-title" placeholder="E.g., Main Entrance, Gallery 2">
+            </div>
+
+            <div class="form-group">
+                <label>Room/Area Name</label>
+                <input type="text" id="room-name" placeholder="E.g., Renaissance Gallery">
+            </div>
+
+            <div class="form-group">
+                <label>Floor Level *</label>
+                <select id="floor-level">
+                    <option value="0">Ground Floor (0)</option>
+                    <option value="1" selected>First Floor (1)</option>
+                    <option value="2">Second Floor (2)</option>
+                    <option value="3">Third Floor (3)</option>
+                    <option value="4">Fourth Floor (4)</option>
+                    <option value="-1">Basement (-1)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Artwork at this Location (Optional)</label>
+                <select id="artwork-select">
+                    <option value="">-- No Artwork --</option>
+                    <!-- Will be populated dynamically -->
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Description & Landmarks</label>
+                <textarea id="description" placeholder="Describe what visitors will see at this location..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Voice Instructions</label>
+                <textarea id="voice-instructions" placeholder="E.g., 'Walk straight for 20 steps, turn right at the statue...'"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Distance to Next Waypoint (meters)</label>
+                <input type="number" id="distance-next" placeholder="E.g., 15" min="0" step="0.5">
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-success" onclick="saveWaypoint()">
+                    <span>💾</span> Save Waypoint & Continue
+                </button>
+                <button class="btn btn-danger" onclick="stopRecording()">
+                    <span>⏹️</span> Finish Path
+                </button>
+            </div>
+
+            <div id="gps-coords" style="margin-top: 15px; font-size: 12px; color: #6b7280;">
+                GPS: Waiting for location...
+            </div>
+        </div>
+
+        <!-- Waypoint List -->
+        <div class="waypoint-list" id="waypoint-list">
+            <h3>Recorded Waypoints</h3>
+            <div id="waypoints-container">
+                <div class="empty-state">
+                    <div class="empty-icon">📍</div>
+                    <p>No waypoints recorded yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let currentGPS = null;
+        let waypoints = [];
+        let isRecording = false;
+        let videoStream = null;
+        let currentWaypointVideo = null;
+
+        // Check if user is museum staff
+        const isStaff = true; // In production, check authentication
+
+        // Start the recording process
+        async function startRecording() {
+            if (!isStaff) {
+                alert('Only museum staff can record navigation paths');
+                return;
+            }
+
+            try {
+                // Request camera access
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                    audio: false
+                });
+
+                document.getElementById('camera-feed').srcObject = videoStream;
+                document.getElementById('camera-container').style.display = 'block';
+                document.getElementById('start-controls').style.display = 'none';
+                document.getElementById('waypoint-form').style.display = 'block';
+
+                // Update status
+                document.getElementById('status-badge').classList.add('recording');
+                document.getElementById('status-icon').textContent = '🔴';
+                document.getElementById('status-text').textContent = 'Recording in Progress';
+
+                isRecording = true;
+
+                // Start GPS tracking
+                startGPSTracking();
+
+                // Load artworks for selection
+                await loadArtworks();
+
+                alert('Camera ready! Rotate 360° slowly to capture your surroundings, then fill in the waypoint details.');
+
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                alert('Unable to access camera. Please grant camera permissions.');
+            }
+        }
+
+        // Start GPS tracking
+        function startGPSTracking() {
+            if (!navigator.geolocation) {
+                alert('GPS not supported on this device');
+                return;
+            }
+
+            const gpsIndicator = document.getElementById('gps-indicator');
+            gpsIndicator.classList.add('acquiring');
+            gpsIndicator.textContent = '📡 GPS Acquiring...';
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    currentGPS = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    };
+
+                    gpsIndicator.classList.remove('acquiring');
+                    gpsIndicator.textContent = `📍 GPS Locked (±${Math.round(currentGPS.accuracy)}m)`;
+                    
+                    document.getElementById('gps-coords').textContent = 
+                        `GPS: ${currentGPS.latitude.toFixed(6)}, ${currentGPS.longitude.toFixed(6)} (Accuracy: ±${Math.round(currentGPS.accuracy)}m)`;
+                },
+                (error) => {
+                    console.error('GPS Error:', error);
+                    gpsIndicator.textContent = '❌ GPS Error';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // Load artworks for selection
+        async function loadArtworks() {
+            try {
+                const response = await fetch('/api/artworks/');
+                const data = await response.json();
+                
+                const select = document.getElementById('artwork-select');
+                data.forEach(artwork => {
+                    const option = document.createElement('option');
+                    option.value = artwork.id;
+                    option.textContent = `${artwork.title}${artwork.artist ? ' - ' + artwork.artist.name : ''}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading artworks:', error);
+            }
+        }
+
+        // Record 360° video snippet
+        async function recordVideoSnippet() {
+            return new Promise((resolve, reject) => {
+                recordedChunks = [];
+
+                const stream = document.getElementById('camera-feed').srcObject;
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'video/webm'
+                });
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    resolve(blob);
+                };
+
+                mediaRecorder.onerror = (error) => {
+                    reject(error);
+                };
+
+                // Record for 10 seconds (time for 360° rotation)
+                mediaRecorder.start();
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 10000);
+            });
+        }
+
+        // Save waypoint
+        async function saveWaypoint() {
+            const title = document.getElementById('waypoint-title').value.trim();
+            const roomName = document.getElementById('room-name').value.trim();
+            const floorLevel = document.getElementById('floor-level').value;
+            const artworkId = document.getElementById('artwork-select').value;
+            const description = document.getElementById('description').value.trim();
+            const voiceInstructions = document.getElementById('voice-instructions').value.trim();
+            const distanceNext = document.getElementById('distance-next').value;
+
+            if (!title) {
+                alert('Please enter a waypoint title');
+                return;
+            }
+
+            if (!currentGPS) {
+                alert('Waiting for GPS signal...');
+                return;
+            }
+
+            // Show recording message
+            alert('Recording 10-second video clip. Please rotate 360° slowly...');
+
+            try {
+                // Record video snippet
+                const videoBlob = await recordVideoSnippet();
+
+                // Create waypoint object
+                const waypoint = {
+                    id: Date.now(),
+                    title,
+                    roomName,
+                    floorLevel: parseInt(floorLevel),
+                    artworkId,
+                    description,
+                    voiceInstructions,
+                    distanceNext: distanceNext ? parseFloat(distanceNext) : null,
+                    latitude: currentGPS.latitude,
+                    longitude: currentGPS.longitude,
+                    accuracy: currentGPS.accuracy,
+                    videoBlob,
+                    timestamp: new Date().toISOString()
+                };
+
+                waypoints.push(waypoint);
+
+                // Update UI
+                displayWaypoints();
+                clearForm();
+
+                alert(`Waypoint "${title}" saved! Total waypoints: ${waypoints.length}`);
+
+            } catch (error) {
+                console.error('Error saving waypoint:', error);
+                alert('Failed to save waypoint. Please try again.');
+            }
+        }
+
+        // Display waypoints
+        function displayWaypoints() {
+            const container = document.getElementById('waypoints-container');
+            
+            if (waypoints.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📍</div>
+                        <p>No waypoints recorded yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = waypoints.map((wp, index) => `
+                <div class="waypoint-item">
+                    <div class="waypoint-info">
+                        <div class="waypoint-title">${index + 1}. ${wp.title}</div>
+                        <div class="waypoint-meta">
+                            Floor ${wp.floorLevel} | GPS: ${wp.latitude.toFixed(6)}, ${wp.longitude.toFixed(6)}
+                            ${wp.distanceNext ? ` | ${wp.distanceNext}m to next` : ''}
+                        </div>
+                    </div>
+                    <div class="waypoint-actions">
+                        <button class="icon-btn" onclick="previewWaypoint(${wp.id})" title="Preview">👁️</button>
+                        <button class="icon-btn" onclick="deleteWaypoint(${wp.id})" title="Delete">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('waypoint-count').textContent = `Waypoints: ${waypoints.length}`;
+        }
+
+        // Clear form
+        function clearForm() {
+            document.getElementById('waypoint-title').value = '';
+            document.getElementById('room-name').value = '';
+            document.getElementById('artwork-select').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('voice-instructions').value = '';
+            document.getElementById('distance-next').value = '';
+        }
+
+        // Preview waypoint video
+        function previewWaypoint(id) {
+            const waypoint = waypoints.find(wp => wp.id === id);
+            if (waypoint && waypoint.videoBlob) {
+                const url = URL.createObjectURL(waypoint.videoBlob);
+                window.open(url, '_blank');
+            }
+        }
+
+        // Delete waypoint
+        function deleteWaypoint(id) {
+            if (confirm('Delete this waypoint?')) {
+                waypoints = waypoints.filter(wp => wp.id !== id);
+                displayWaypoints();
+            }
+        }
+
+        // Stop recording and save path
+        async function stopRecording() {
+            if (waypoints.length === 0) {
+                alert('Please record at least one waypoint before finishing');
+                return;
+            }
+
+            if (!confirm(`Save navigation path with ${waypoints.length} waypoints?`)) {
+                return;
+            }
+
+            try {
+                // Prepare form data
+                const formData = new FormData();
+                
+                waypoints.forEach((wp, index) => {
+                    formData.append(`waypoint_${index}_title`, wp.title);
+                    formData.append(`waypoint_${index}_room`, wp.roomName);
+                    formData.append(`waypoint_${index}_floor`, wp.floorLevel);
+                    formData.append(`waypoint_${index}_artwork`, wp.artworkId || '');
+                    formData.append(`waypoint_${index}_description`, wp.description);
+                    formData.append(`waypoint_${index}_voice`, wp.voiceInstructions);
+                    formData.append(`waypoint_${index}_distance`, wp.distanceNext || '');
+                    formData.append(`waypoint_${index}_lat`, wp.latitude);
+                    formData.append(`waypoint_${index}_lng`, wp.longitude);
+                    formData.append(`waypoint_${index}_video`, wp.videoBlob, `waypoint_${index}.webm`);
+                });
+
+                // Send to server
+                const response = await fetch('/api/navigation/paths/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    alert('Navigation path saved successfully! ✅');
+                    window.location.href = '/dashboard/';
+                } else {
+                    throw new Error('Server error');
+                }
+
+            } catch (error) {
+                console.error('Error saving path:', error);
+                alert('Failed to save navigation path. Please try again.');
+            }
+        }
+
+        // Go back
+        function goBack() {
+            if (waypoints.length > 0) {
+                if (!confirm('Discard recorded waypoints and go back?')) {
+                    return;
+                }
+            }
+
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+
+            window.location.href = '/dashboard/';
+        }
+
+        // Handle page unload
+        window.addEventListener('beforeunload', (event) => {
+            if (waypoints.length > 0) {
+                event.preventDefault();
+                event.returnValue = 'You have unsaved waypoints. Are you sure you want to leave?';
+            }
+        });
+    </script>
+</body>
+</html>

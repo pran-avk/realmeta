@@ -259,3 +259,34 @@ def edit_artwork_view(request, artwork_id):
     except Exception as e:
         messages.error(request, str(e))
         return redirect('dashboard')
+
+
+# ============================================
+# NAVIGATION VIEWS
+# ============================================
+
+@login_required
+def record_navigation_path_view(request):
+    """
+    Staff interface for recording navigation paths
+    """
+    from core.models import NavigationPath, NavigationWaypoint
+    
+    # Get staff's museum artworks for waypoint selection
+    artworks = Artwork.objects.filter(museum=request.user.museum, is_on_display=True)
+    
+    # Get existing paths for this museum
+    existing_paths = NavigationPath.objects.filter(museum=request.user.museum)
+    
+    return render(request, 'record_navigation_path.html', {
+        'artworks': artworks,
+        'existing_paths': existing_paths,
+    })
+
+
+def visitor_navigation_view(request):
+    """
+    Visitor interface for navigating to artworks
+    Public view - no login required
+    """
+    return render(request, 'visitor_navigation.html')

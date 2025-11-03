@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArtScope - Discover Stories Beyond the Frame</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23380E1F"/><stop offset="100%" style="stop-color:%232B0A1A"/></linearGradient></defs><rect width="800" height="800" fill="url(%23bg)"/></svg>') center/cover;
+            background-color: #2B0A1A;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Museum Art Background */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(rgba(43, 10, 26, 0.8), rgba(43, 10, 26, 0.9)),
+                url('https://images.unsplash.com/photo-1582555172866-f73bb12a2ab3?q=80&w=1920') center/cover;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 440px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Logo */
+        .logo {
+            font-size: 48px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .logo-underline {
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(90deg, #FFA500 0%, #FF8C00 100%);
+            margin: 0 auto 50px;
+            border-radius: 2px;
+        }
+
+        /* Camera Icon */
+        .camera-icon {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 40px;
+            box-shadow: 0 10px 40px rgba(255, 165, 0, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 10px 40px rgba(255, 165, 0, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 15px 50px rgba(255, 165, 0, 0.6); }
+        }
+
+        .camera-icon svg {
+            width: 60px;
+            height: 60px;
+            fill: white;
+        }
+
+        /* Heading */
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 10px;
+            line-height: 1.3;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        /* Start Button */
+        .start-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(90deg, #FFA500 0%, #FF8C00 100%);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(255, 165, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(255, 165, 0, 0.5);
+        }
+
+        .start-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Museum Link */
+        .museum-link {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .museum-link p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .museum-link a {
+            display: inline-block;
+            padding: 12px 30px;
+            border: 2px solid rgba(255, 165, 0, 0.5);
+            border-radius: 30px;
+            color: #FFA500;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .museum-link a:hover {
+            background: rgba(255, 165, 0, 0.1);
+            border-color: #FFA500;
+            transform: translateY(-2px);
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Welcome Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: linear-gradient(135deg, rgba(100, 60, 130, 0.95), rgba(80, 50, 110, 0.95));
+            border-radius: 30px;
+            padding: 50px 40px;
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .modal-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            font-size: 50px;
+        }
+
+        .modal h2 {
+            font-size: 28px;
+            color: #8B9FFF;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .modal p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .modal-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(90deg, #7B8CFF 0%, #6B7CFF 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(123, 140, 255, 0.4);
+        }
+
+        .privacy-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            text-align: left;
+            margin-top: 20px;
+        }
+
+        .privacy-note svg {
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .privacy-note p {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin: 0;
+        }
+
+        .privacy-note strong {
+            color: #FFD700;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Logo -->
+        <div class="logo">ArtScope</div>
+        <div class="logo-underline"></div>
+
+        <!-- Camera Icon -->
+        <div class="camera-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                <circle cx="12" cy="12" r="3"/>
+            </svg>
+        </div>
+
+        <!-- Heading -->
+        <h1>Discover Stories<br>Beyond the Frame</h1>
+        
+        <p class="subtitle">
+            Point your camera at any artwork to uncover its hidden history.
+        </p>
+
+        <!-- Start Button -->
+        <button class="start-btn" onclick="startScanning()">
+            Start Scanning
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+        </button>
+
+        <!-- Museum Staff Link -->
+        <div class="museum-link">
+            <p>Museum Staff?</p>
+            <a href="/register/">🏛️ Register Your Museum</a>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            By continuing, you agree to anonymous analytics collection
+        </div>
+    </div>
+
+    <!-- Welcome Modal -->
+    <div class="modal-overlay active" id="welcomeModal">
+        <div class="modal">
+            <div class="modal-icon">🎨</div>
+            <h2>Welcome to the Gallery Guide</h2>
+            <p>
+                Unlock the stories behind the art. Simply point your camera at a painting to learn more. No account needed.
+            </p>
+            <button class="modal-btn" onclick="acceptAndStart()">Start Scanning</button>
+            
+            <div class="privacy-note">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <p>
+                    <strong>Help Us Improve Your Experience</strong><br>
+                    We collect anonymous data about which artworks are scanned to enhance your museum experience.
+                </p>
+            </div>
+
+            <div style="margin-top: 25px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <p style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 12px;">Museum Staff?</p>
+                <a href="/register/" style="display: inline-block; padding: 10px 24px; border: 2px solid rgba(139, 159, 255, 0.5); border-radius: 20px; color: #8B9FFF; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.3s ease;">
+                    🏛️ Register Your Museum
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function acceptAndStart() {
+            // Hide modal
+            document.getElementById('welcomeModal').classList.remove('active');
+            // Start scanning
+            startScanning();
+        }
+
+        function startScanning() {
+            // Create session and redirect to scanner
+            fetch('/api/sessions/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    analytics_consent: true
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                sessionStorage.setItem('artscope_session_id', data.id);
+                window.location.href = '/scanner/';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.location.href = '/scanner/';
+            });
+        }
+    </script>
+</body>
+</html>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 480px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .welcome-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hero-image {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            border-radius: 16px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .hero-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, transparent 70%);
+        }
+
+        .hero-icon {
+            font-size: 80px;
+            opacity: 0.8;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .privacy-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .privacy-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .privacy-text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+        }
+
+        .privacy-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .privacy-list li {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            padding: 6px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .privacy-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .btn-secondary {
+            width: 100%;
+            padding: 14px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 12px;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .footer-text {
+            text-align: center;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 30px;
+        }
+
+        @media (max-width: 480px) {
+            .welcome-card {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="welcome-card">
+            <div class="hero-image">
+                <div class="hero-icon">🎨</div>
+            </div>
+
+            <h1>Welcome to the Gallery Guide</h1>
+            <p class="subtitle">
+                Unlock the stories behind the art. Simply point your camera at a painting to learn more. No account needed.
+            </p>
+
+            <button class="btn-primary" onclick="startScanning()">
+                Start Scanning
+            </button>
+
+            <div class="privacy-section">
+                <div class="privacy-title">
+                    🔒 Help Us Improve Your Experience
+                </div>
+                <p class="privacy-text">
+                    We collect anonymous data about which artworks are popular to help the museum. Your privacy is protected.
+                </p>
+                <ul class="privacy-list">
+                    <li>No personal data collected</li>
+                    <li>Anonymous session tracking</li>
+                    <li>You can opt out anytime</li>
+                </ul>
+                <button class="btn-secondary" onclick="acceptAndContinue()">
+                    Accept & Continue
+                </button>
+            </div>
+
+            <p class="footer-text">
+                By continuing, you agree to anonymous analytics collection
+            </p>
+            
+            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <p style="color: rgba(255, 255, 255, 0.6); font-size: 14px; margin-bottom: 10px;">
+                    Museum Staff?
+                </p>
+                <a href="/register/" style="color: #667eea; text-decoration: none; font-weight: 600; display: inline-block; padding: 10px 20px; border: 1px solid #667eea; border-radius: 8px; transition: all 0.3s ease;">
+                    🏛️ Register Your Museum
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function startScanning() {
+            // Create session and redirect to scanner
+            fetch('/api/sessions/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    analytics_consent: true
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                sessionStorage.setItem('artscope_session_id', data.id);
+                window.location.href = '/scanner/';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.location.href = '/scanner/';
+            });
+        }
+
+        function acceptAndContinue() {
+            startScanning();
+        }
+    </script>
+</body>
+</html>

@@ -418,3 +418,214 @@ class SystemLog(models.Model):
     
     def __str__(self):
         return f"{self.log_type} - {self.created_at}"
+
+
+class NavigationWaypoint(models.Model):
+    """
+    Waypoints for indoor museum navigation with 360° video capture
+    Staff walks through museum recording path, visitors use it for navigation
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    museum = models.ForeignKey(Museum, on_delete=models.CASCADE, related_name='waypoints')
+    artwork = models.ForeignKey(
+        Artwork, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='waypoints',
+        help_text="Artwork located at this waypoint (if any)"
+    )
+    
+    # Location Data
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    floor_level = models.IntegerField(default=1, help_text="Floor number (1=Ground, 2=First, etc.)")
+    room_name = models.CharField(max_length=100, blank=True, help_text="E.g., 'Renaissance Gallery'")
+    
+    # Visual Reference for Position Matching
+    video_360 = models.FileField(
+        upload_to='navigation/waypoints/',
+        validators=[FileExtensionValidator(['mp4', 'webm'])],
+        help_text="360° video captured at this location for visual matching"
+    )
+    thumbnail = models.ImageField(
+        upload_to='navigation/thumbnails/',
+        blank=True,
+        null=True,
+        help_text="Preview image extracted from 360° video"
+    )
+    
+    # Navigation Instructions
+    title = models.CharField(max_length=255, help_text="E.g., 'Entrance Hall', 'Gallery Intersection'")
+    description = models.TextField(blank=True, help_text="Landmarks or directions visible from here")
+    voice_instruction = models.TextField(blank=True, help_text="Text for TTS: 'Walk 20 steps forward...'")
+    
+    # Path Connections
+    sequence_order = models.IntegerField(default=0, help_text="Order in the navigation path")
+    next_waypoint = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='previous_waypoint',
+        help_text="Next step in the navigation sequence"
+    )
+    
+    # Distance & Timing
+    distance_to_next_meters = models.FloatField(
+        null=True, 
+        blank=True,
+        help_text="Distance to next waypoint in meters"
+    )
+    estimated_walk_seconds = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Estimated time to walk to next waypoint"
+    )
+    
+    # Visual Embedding for Position Matching (frame from 360° video)
+    if VECTOR_AVAILABLE:
+        position_embedding = VectorField(dimensions=512, null=True, blank=True)
+    else:
+        position_embedding = models.BinaryField(null=True, blank=True)
+    
+    # Metadata
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        MuseumStaff,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_waypoints'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['museum', 'floor_level', 'sequence_order']
+        indexes = [
+            models.Index(fields=['museum', 'floor_level', 'is_active']),
+            models.Index(fields=['sequence_order']),
+            models.Index(fields=['artwork']),
+        ]
+    
+    def __str__(self):
+        artwork_info = f" -> {self.artwork.title}" if self.artwork else ""
+        return f"{self.museum.name} - {self.title}{artwork_info}"
+
+
+class NavigationPath(models.Model):
+    """
+    Pre-defined navigation routes through the museum
+    E.g., 'Renaissance Tour', 'Modern Art Collection', 'Quick Tour'
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    museum = models.ForeignKey(Museum, on_delete=models.CASCADE, related_name='navigation_paths')
+    
+    # Path Information
+    name = models.CharField(max_length=255, help_text="E.g., 'Highlights Tour', 'Complete Exhibition'")
+    description = models.TextField()
+    duration_minutes = models.IntegerField(help_text="Estimated tour duration")
+    difficulty = models.CharField(
+        max_length=20,
+        choices=[
+            ('easy', 'Easy - Wheelchair Accessible'),
+            ('moderate', 'Moderate - Some stairs'),
+            ('challenging', 'Challenging - Multiple floors')
+        ],
+        default='easy'
+    )
+    
+    # Waypoints in this path (stored as ordered list of IDs)
+    waypoint_sequence = models.JSONField(
+        default=list,
+        help_text="Ordered list of waypoint UUIDs"
+    )
+    
+    # Path Metadata
+    total_distance_meters = models.FloatField(default=0)
+    artwork_count = models.IntegerField(default=0)
+    is_featured = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    
+    # Analytics
+    usage_count = models.IntegerField(default=0)
+    avg_completion_rate = models.FloatField(default=0.0)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-is_featured', '-usage_count']
+        indexes = [
+            models.Index(fields=['museum', 'is_active']),
+        ]
+    
+    def __str__(self):
+        return f"{self.museum.name} - {self.name}"
+
+
+class VisitorNavigation(models.Model):
+    """
+    Track visitor navigation sessions for analytics and assistance
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(
+        VisitorSession,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='navigation_sessions'
+    )
+    path = models.ForeignKey(
+        NavigationPath,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='visitor_sessions'
+    )
+    
+    # Current Status
+    current_waypoint = models.ForeignKey(
+        NavigationWaypoint,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='current_visitors'
+    )
+    target_artwork = models.ForeignKey(
+        Artwork,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='navigation_targets'
+    )
+    
+    # Progress Tracking
+    visited_waypoints = models.JSONField(
+        default=list,
+        help_text="List of visited waypoint UUIDs with timestamps"
+    )
+    completion_percentage = models.FloatField(default=0.0)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('active', 'Active'),
+            ('completed', 'Completed'),
+            ('abandoned', 'Abandoned'),
+        ],
+        default='active'
+    )
+    
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['session', 'status']),
+        ]
+    
+    def __str__(self):
+        return f"Navigation {self.id} - {self.status}"

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - {{ museum.name }}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: background 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .welcome {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .welcome h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            text-align: center;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .artwork-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .artwork-item {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            transition: background 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .artwork-item:hover {
+            background: #f8f9fa;
+        }
+
+        .artwork-info {
+            flex: 1;
+        }
+
+        .artwork-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .artwork-meta {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .artwork-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .delete-btn:hover {
+            background: #c82333;
+        }
+
+        .edit-btn {
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .edit-btn:hover {
+            background: #5568d3;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">🎨 ArtScope Dashboard</div>
+            <div class="user-info">
+                <span>👤 {{ user.get_full_name }}</span>
+                <a href="{% url 'logout' %}" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="welcome">
+            <h1>Welcome back, {{ user.first_name }}! 👋</h1>
+            <p style="color: #666;">Managing: <strong>{{ museum.name }}</strong></p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_artworks }}</div>
+                <div class="stat-label">Total Artworks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ active_artworks }}</div>
+                <div class="stat-label">On Display</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Total Scans Today</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="/upload-artwork/" class="action-btn">📸 Upload New Artwork</a>
+            <a href="/admin/core/artwork/" class="action-btn">📚 Manage Artworks</a>
+            <a href="/admin/core/museum/{{ museum.id }}/change/" class="action-btn">⚙️ Museum Settings</a>
+            <a href="/api/" class="action-btn">🚀 API Documentation</a>
+        </div>
+
+        <div class="section">
+            <h2>Recent Artworks</h2>
+            {% if artworks %}
+            <div class="artwork-list">
+                {% for artwork in artworks %}
+                <div class="artwork-item" id="artwork-{{ artwork.id }}">
+                    <div class="artwork-info">
+                        <div class="artwork-title">{{ artwork.title }}</div>
+                        <div class="artwork-meta">
+                            {% if artwork.artist %}by {{ artwork.artist.name }}{% endif %}
+                            | {{ artwork.category|title }}
+                            {% if artwork.year_created %}| {{ artwork.year_created }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="artwork-actions">
+                        <a href="/edit-artwork/{{ artwork.id }}/" class="edit-btn">✏️ Edit</a>
+                        <button onclick="deleteArtwork('{{ artwork.id }}', '{{ artwork.title }}')" class="delete-btn">🗑️ Delete</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>📭 No artworks yet. Start by uploading your first artwork!</p>
+                <a href="/upload-artwork/" class="action-btn" style="display: inline-block; margin-top: 20px;">📸 Upload Your First Artwork</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h2>Quick Links</h2>
+            <div style="display: grid; gap: 10px;">
+                <a href="/" style="color: #667eea; text-decoration: none;">🏠 View Public Homepage</a>
+                <a href="/scanner/" style="color: #667eea; text-decoration: none;">📷 Test Scanner</a>
+                <a href="/admin/" style="color: #667eea; text-decoration: none;">🔧 Admin Panel</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function deleteArtwork(artworkId, artworkTitle) {
+            if (!confirm(`Are you sure you want to delete "${artworkTitle}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            const artworkElement = document.getElementById(`artwork-${artworkId}`);
+            
+            // Show loading state
+            if (artworkElement) {
+                artworkElement.style.opacity = '0.5';
+                artworkElement.style.pointerEvents = 'none';
+            }
+
+            fetch(`/delete-artwork/${artworkId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the artwork item with animation
+                    if (artworkElement) {
+                        artworkElement.style.transition = 'all 0.3s ease';
+                        artworkElement.style.transform = 'translateX(-100%)';
+                        artworkElement.style.opacity = '0';
+                        
+                        setTimeout(() => {
+                            artworkElement.remove();
+                            
+                            // Check if list is empty
+                            const artworkList = document.querySelector('.artwork-list');
+                            if (artworkList && artworkList.children.length === 0) {
+                                location.reload(); // Reload to show empty state
+                            }
+                        }, 300);
+                    }
+                    
+                    // Update stats
+                    updateStats();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to delete artwork'));
+                    if (artworkElement) {
+                        artworkElement.style.opacity = '1';
+                        artworkElement.style.pointerEvents = 'auto';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to delete artwork. Please try again.');
+                if (artworkElement) {
+                    artworkElement.style.opacity = '1';
+                    artworkElement.style.pointerEvents = 'auto';
+                }
+            });
+        }
+
+        function updateStats() {
+            // Reload page to update stats
+            setTimeout(() => {
+                const statCards = document.querySelectorAll('.stat-number');
+                if (statCards[0]) {
+                    const currentCount = parseInt(statCards[0].textContent);
+                    statCards[0].textContent = currentCount - 1;
+                }
+                if (statCards[1]) {
+                    const currentActive = parseInt(statCards[1].textContent);
+                    statCards[1].textContent = Math.max(0, currentActive - 1);
+                }
+            }, 300);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>
