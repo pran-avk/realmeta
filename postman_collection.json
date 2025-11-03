@@ -1,0 +1,228 @@
+{
+  "info": {
+    "name": "ArtScope API",
+    "description": "API collection for ArtScope AR Museum Guide Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Obtain JWT Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": "{{base_url}}/api/token/"
+          }
+        },
+        {
+          "name": "Refresh JWT Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"<refresh_token>\"\n}"
+            },
+            "url": "{{base_url}}/api/token/refresh/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "AR Scanning (Public)",
+      "item": [
+        {
+          "name": "Scan Artwork",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "museum_id",
+                  "value": "museum-uuid-here",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/scan/"
+          }
+        },
+        {
+          "name": "Get Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/recommendations/?session_id=session-uuid&museum_id=museum-uuid",
+              "query": [
+                {
+                  "key": "session_id",
+                  "value": "session-uuid"
+                },
+                {
+                  "key": "museum_id",
+                  "value": "museum-uuid"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session\": \"session-uuid\",\n  \"artwork\": \"artwork-uuid\",\n  \"reaction\": \"love\",\n  \"comment\": \"Amazing artwork!\"\n}"
+            },
+            "url": "{{base_url}}/api/feedback/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Museums",
+      "item": [
+        {
+          "name": "List Museums",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/museums/"
+          }
+        },
+        {
+          "name": "Get Museum Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/museums/:id/analytics/?days=30",
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Heatmap Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/museums/:id/heatmap/?days=7",
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Artworks",
+      "item": [
+        {
+          "name": "List Artworks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/artworks/?museum=museum-uuid",
+              "query": [
+                {
+                  "key": "museum",
+                  "value": "museum-uuid"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Artwork Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/artworks/:id/"
+          }
+        },
+        {
+          "name": "Get Similar Artworks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/artworks/:id/similar/"
+          }
+        },
+        {
+          "name": "Get Artwork Insights",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/api/artworks/:id/insights/"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    }
+  ]
+}

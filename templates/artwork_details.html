@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArtScope - Artwork Details</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0f0f1e;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            background: rgba(15, 15, 30, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .back-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .artwork-image {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+
+        .content {
+            padding: 24px 20px;
+        }
+
+        .artwork-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .artwork-artist {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 4px;
+        }
+
+        .artwork-year {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 20px;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-content {
+            font-size: 15px;
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .media-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .media-btn {
+            flex: 1;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.2s;
+        }
+
+        .media-btn:active {
+            transform: scale(0.98);
+        }
+
+        .media-btn.secondary {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .tag {
+            padding: 6px 14px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.4);
+            border-radius: 20px;
+            font-size: 13px;
+            color: #667eea;
+        }
+
+        .recommendations {
+            margin-top: 40px;
+        }
+
+        .recommendation-scroll {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding: 12px 0;
+            scrollbar-width: none;
+        }
+
+        .recommendation-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .recommendation-card {
+            min-width: 200px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .recommendation-card:active {
+            transform: scale(0.98);
+        }
+
+        .recommendation-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+
+        .recommendation-info {
+            padding: 12px;
+        }
+
+        .recommendation-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .recommendation-artist {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .feedback-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+
+        .feedback-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .reaction-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .reaction-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid transparent;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .reaction-btn.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.2);
+            transform: scale(1.1);
+        }
+
+        .feedback-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .submit-feedback-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(15, 15, 30, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .nav-icon {
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="back-btn" onclick="goBack()">←</button>
+        <div class="header-title">Artwork Details</div>
+    </div>
+
+    <img id="artwork-image" class="artwork-image" src="" alt="Artwork">
+
+    <div class="content">
+        <h1 id="artwork-title" class="artwork-title">Loading...</h1>
+        <div id="artwork-artist" class="artwork-artist"></div>
+        <div id="artwork-year" class="artwork-year"></div>
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-value" id="similarity-score">--</div>
+                <div class="stat-label">Match Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="scan-count">--</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="view-count">--</div>
+                <div class="stat-label">Views</div>
+            </div>
+        </div>
+
+        <div class="media-buttons">
+            <button class="media-btn" id="audio-btn" onclick="playAudio()">
+                🔊 Audio Guide
+            </button>
+            <button class="media-btn secondary" id="video-btn" onclick="play360Video()">
+                🎥 360° View
+            </button>
+        </div>
+
+        <div class="section">
+            <div class="section-title">📝 Description</div>
+            <div class="section-content" id="description">
+                Loading artwork information...
+            </div>
+            <div class="tags" id="tags"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">🎨 Historical Context</div>
+            <div class="section-content" id="historical-context">
+                Loading historical context...
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">ℹ️ Details</div>
+            <div class="section-content">
+                <div id="medium" style="margin-bottom: 8px;"></div>
+                <div id="dimensions" style="margin-bottom: 8px;"></div>
+                <div id="location" style="margin-bottom: 8px;"></div>
+            </div>
+        </div>
+
+        <div class="feedback-section">
+            <div class="feedback-title">💭 How did you like this artwork?</div>
+            <div class="reaction-buttons">
+                <button class="reaction-btn" data-reaction="love" onclick="selectReaction('love')">❤️</button>
+                <button class="reaction-btn" data-reaction="like" onclick="selectReaction('like')">👍</button>
+                <button class="reaction-btn" data-reaction="neutral" onclick="selectReaction('neutral')">😐</button>
+                <button class="reaction-btn" data-reaction="dislike" onclick="selectReaction('dislike')">👎</button>
+            </div>
+            <textarea 
+                class="feedback-textarea" 
+                id="feedback-comment" 
+                placeholder="Share your thoughts... (optional)">
+            </textarea>
+            <button class="submit-feedback-btn" onclick="submitFeedback()">Submit Feedback</button>
+        </div>
+
+        <div class="recommendations">
+            <div class="section-title">✨ You might also like</div>
+            <div class="recommendation-scroll" id="recommendations">
+                <!-- Recommendations will be loaded here -->
+            </div>
+        </div>
+
+        <div style="height: 80px;"></div>
+    </div>
+
+    <div class="bottom-nav">
+        <button class="nav-btn" onclick="goToScanner()">
+            <div class="nav-icon">📷</div>
+            Scan
+        </button>
+        <button class="nav-btn" onclick="shareArtwork()">
+            <div class="nav-icon">🔗</div>
+            Share
+        </button>
+        <button class="nav-btn" onclick="saveArtwork()">
+            <div class="nav-icon">❤️</div>
+            Save
+        </button>
+    </div>
+
+    <script>
+        let artworkData = null;
+        let selectedReaction = null;
+        let sessionId = sessionStorage.getItem('artscope_session_id');
+
+        // Load artwork data
+        window.addEventListener('load', () => {
+            const dataStr = sessionStorage.getItem('scanned_artwork');
+            if (dataStr) {
+                artworkData = JSON.parse(dataStr);
+                displayArtwork();
+            } else {
+                alert('No artwork data found');
+                window.location.href = '/scanner/';
+            }
+        });
+
+        function displayArtwork() {
+            const artwork = artworkData.artwork;
+            
+            // Basic info
+            document.getElementById('artwork-image').src = artwork.image || '';
+            document.getElementById('artwork-title').textContent = artwork.title;
+            document.getElementById('artwork-artist').textContent = artwork.artist?.name || 'Unknown Artist';
+            document.getElementById('artwork-year').textContent = artwork.year_created || '';
+            
+            // Stats
+            document.getElementById('similarity-score').textContent = 
+                Math.round((artworkData.similarity_score || 0) * 100) + '%';
+            document.getElementById('scan-count').textContent = artwork.scan_count || 0;
+            document.getElementById('view-count').textContent = artwork.view_count || 0;
+            
+            // Description and context
+            document.getElementById('description').textContent = artwork.description || 'No description available';
+            document.getElementById('historical-context').textContent = 
+                artwork.historical_context || 'No historical context available';
+            
+            // Details
+            document.getElementById('medium').textContent = artwork.medium ? `Medium: ${artwork.medium}` : '';
+            document.getElementById('dimensions').textContent = artwork.dimensions ? `Dimensions: ${artwork.dimensions}` : '';
+            document.getElementById('location').textContent = 
+                artwork.gallery_location ? `Location: ${artwork.gallery_location}` : '';
+            
+            // Tags
+            const tagsContainer = document.getElementById('tags');
+            if (artwork.tags && artwork.tags.length > 0) {
+                artwork.tags.forEach(tag => {
+                    const tagEl = document.createElement('div');
+                    tagEl.className = 'tag';
+                    tagEl.textContent = tag;
+                    tagsContainer.appendChild(tagEl);
+                });
+            }
+            
+            // Show/hide media buttons
+            if (!artwork.audio_narration) {
+                document.getElementById('audio-btn').style.display = 'none';
+            }
+            if (!artwork.video_360) {
+                document.getElementById('video-btn').style.display = 'none';
+            }
+            
+            // Load recommendations
+            displayRecommendations();
+            
+            // Log interaction
+            logInteraction('view_details');
+        }
+
+        function displayRecommendations() {
+            const container = document.getElementById('recommendations');
+            const recommendations = artworkData.recommendations || [];
+            
+            if (recommendations.length === 0) {
+                container.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No recommendations available</p>';
+                return;
+            }
+            
+            recommendations.forEach(rec => {
+                const card = document.createElement('div');
+                card.className = 'recommendation-card';
+                card.onclick = () => loadArtwork(rec.id);
+                
+                card.innerHTML = `
+                    <img class="recommendation-image" src="${rec.image || ''}" alt="${rec.title}">
+                    <div class="recommendation-info">
+                        <div class="recommendation-title">${rec.title}</div>
+                        <div class="recommendation-artist">${rec.artist_name || 'Unknown'}</div>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function selectReaction(reaction) {
+            selectedReaction = reaction;
+            document.querySelectorAll('.reaction-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.querySelector(`[data-reaction="${reaction}"]`).classList.add('selected');
+        }
+
+        async function submitFeedback() {
+            if (!selectedReaction) {
+                alert('Please select a reaction first');
+                return;
+            }
+            
+            const comment = document.getElementById('feedback-comment').value.trim();
+            
+            try {
+                const response = await fetch('/api/feedback/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session: sessionId,
+                        artwork: artworkData.artwork.id,
+                        reaction: selectedReaction,
+                        comment: comment
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Thank you for your feedback!');
+                    document.getElementById('feedback-comment').value = '';
+                    selectedReaction = null;
+                    document.querySelectorAll('.reaction-btn').forEach(btn => {
+                        btn.classList.remove('selected');
+                    });
+                } else {
+                    alert('Failed to submit feedback. Please try again.');
+                }
+            } catch (error) {
+                console.error('Feedback error:', error);
+                alert('Failed to submit feedback. Please check your connection.');
+            }
+        }
+
+        async function logInteraction(type) {
+            try {
+                await fetch('/api/interactions/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session: sessionId,
+                        artwork: artworkData.artwork.id,
+                        interaction_type: type,
+                        dwell_time_seconds: 0
+                    })
+                });
+            } catch (error) {
+                console.error('Log interaction error:', error);
+            }
+        }
+
+        function playAudio() {
+            if (artworkData.artwork.audio_narration) {
+                window.open(artworkData.artwork.audio_narration, '_blank');
+                logInteraction('play_audio');
+            }
+        }
+
+        function play360Video() {
+            if (artworkData.artwork.video_360) {
+                window.open(artworkData.artwork.video_360, '_blank');
+                logInteraction('watch_video');
+            }
+        }
+
+        function goBack() {
+            window.location.href = '/scanner/';
+        }
+
+        function goToScanner() {
+            window.location.href = '/scanner/';
+        }
+
+        function shareArtwork() {
+            if (navigator.share) {
+                navigator.share({
+                    title: artworkData.artwork.title,
+                    text: `Check out "${artworkData.artwork.title}" by ${artworkData.artwork.artist?.name}`,
+                    url: window.location.href
+                });
+            } else {
+                alert('Sharing not supported on this device');
+            }
+        }
+
+        function saveArtwork() {
+            alert('Save feature coming soon!');
+        }
+
+        async function loadArtwork(artworkId) {
+            // In a real implementation, fetch full artwork details
+            alert('Loading artwork...');
+        }
+    </script>
+</body>
+</html>
