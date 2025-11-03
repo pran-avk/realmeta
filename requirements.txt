@@ -13,10 +13,10 @@ gunicorn==21.2.0
 whitenoise==6.6.0
 dj-database-url==2.1.0
 
-# Caching & Async Tasks (Required)
-redis==5.0.1
-celery==5.3.6
-django-redis==5.4.0
+# Caching & Async Tasks (DISABLED - Not available on free tier)
+# redis==5.0.1
+# celery==5.3.6
+# django-redis==5.4.0
 
 # Authentication & Security (Required)
 djangorestframework-simplejwt==5.3.1
