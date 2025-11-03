@@ -1,47 +1,8 @@
 """
-Geolocation and QR Code Utilities for ArtScope
+Geolocation Utilities for ArtScope
+Location-based (Geofencing) artwork access control
 """
-import qrcode
-from io import BytesIO
-from django.core.files import File
 from geopy.distance import geodesic
-import json
-
-
-def generate_qr_code(artwork):
-    """
-    Generate QR code for artwork
-    Returns a File object that can be saved to the model
-    """
-    # Create QR code data with artwork info
-    qr_data = {
-        'artwork_id': str(artwork.id),
-        'title': artwork.title,
-        'museum': artwork.museum.name,
-        'url': f'/api/artworks/{artwork.id}/'
-    }
-    
-    # Generate QR code
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(json.dumps(qr_data))
-    qr.make(fit=True)
-    
-    # Create image
-    img = qr.make_image(fill_color="black", back_color="white")
-    
-    # Save to BytesIO
-    buffer = BytesIO()
-    img.save(buffer, format='PNG')
-    buffer.seek(0)
-    
-    # Return as Django File
-    filename = f'qr_{artwork.id}.png'
-    return File(buffer, name=filename)
 
 
 def check_geofence(user_lat, user_lon, artwork_lat, artwork_lon, radius_meters):

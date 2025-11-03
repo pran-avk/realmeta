@@ -6,7 +6,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     MuseumViewSet, ArtistViewSet, ArtworkViewSet, VisitorSessionViewSet,
     scan_artwork, log_interaction, submit_feedback,
-    get_recommendations, opt_out_analytics, health_check
+    get_recommendations, opt_out_analytics, health_check, check_geofence_access
 )
 
 # Create router for viewsets
@@ -19,6 +19,9 @@ router.register(r'sessions', VisitorSessionViewSet, basename='session')
 urlpatterns = [
     # ViewSet routes
     path('', include(router.urls)),
+    
+    # Primary scanning method: Geofencing (location-based)
+    path('geofence/check/', check_geofence_access, name='check-geofence'),
     
     # Core AR scanning endpoint (anonymous)
     path('scan/', scan_artwork, name='scan-artwork'),

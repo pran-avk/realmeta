@@ -484,3 +484,102 @@ class VisitorSessionViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(session)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def check_geofence_access(request):
+    """
+    Check if user's location is within geofence of any artwork
+    Primary scanning method - location-based access control
+    
+    POST data:
+    - latitude: User's current latitude
+    - longitude: User's current longitude
+    - museum_id: Optional museum ID to filter artworks
+    
+    Returns:
+    - accessible_artworks: List of artworks within geofence
+    - nearest_artwork: Closest artwork if none accessible
+    """
+    from core.geolocation_utils import check_geofence, get_distance_message
+    
+    user_lat = request.data.get('latitude')
+    user_lon = request.data.get('longitude')
+    museum_id = request.data.get('museum_id')
+    
+    if not user_lat or not user_lon:
+        return Response(
+            {'error': 'Location coordinates required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user_lat = float(user_lat)
+        user_lon = float(user_lon)
+    except (ValueError, TypeError):
+        return Response(
+            {'error': 'Invalid coordinates'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Filter artworks
+    artworks_query = Artwork.objects.filter(is_on_display=True)
+    if museum_id:
+        artworks_query = artworks_query.filter(museum_id=museum_id)
+    
+    # Filter artworks with GPS coordinates
+    artworks_query = artworks_query.exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+    
+    accessible_artworks = []
+    nearest_artwork = None
+    min_distance = float('inf')
+    
+    for artwork in artworks_query:
+        is_accessible, distance = check_geofence(
+            user_lat, user_lon,
+            float(artwork.latitude), float(artwork.longitude),
+            artwork.geofence_radius_meters
+        )
+        
+        if is_accessible:
+            accessible_artworks.append({
+                'id': str(artwork.id),
+                'title': artwork.title,
+                'artist': artwork.artist.name if artwork.artist else 'Unknown',
+                'image': artwork.image.url if artwork.image else None,
+                'distance_meters': round(distance, 2),
+                'description': artwork.description[:200]
+            })
+        
+        # Track nearest artwork
+        if distance < min_distance:
+            min_distance = distance
+            nearest_artwork = {
+                'id': str(artwork.id),
+                'title': artwork.title,
+                'artist': artwork.artist.name if artwork.artist else 'Unknown',
+                'distance_meters': round(distance, 2),
+                'message': get_distance_message(distance, artwork.geofence_radius_meters)
+            }
+    
+    # Sort by distance
+    accessible_artworks.sort(key=lambda x: x['distance_meters'])
+    
+    return Response({
+        'accessible_artworks': accessible_artworks,
+        'nearest_artwork': nearest_artwork if not accessible_artworks else None,
+        'total_accessible': len(accessible_artworks),
+        'scanning_method': 'geofencing'
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check(request):
+    """Health check endpoint for monitoring"""
+    return Response({
+        'status': 'healthy',
+        'timestamp': timezone.now().isoformat(),
+        'scanning_method': 'geofencing'
+    })
