@@ -1,6 +1,6 @@
 """
 Geolocation Utilities for ArtScope
-Location-based (Geofencing) artwork access control
+Location-based (Geofencing) artwork access control - Optimized for speed
 """
 from geopy.distance import geodesic
 
@@ -8,6 +8,7 @@ from geopy.distance import geodesic
 def check_geofence(user_lat, user_lon, artwork_lat, artwork_lon, radius_meters):
     """
     Check if user is within the geofence radius of an artwork
+    OPTIMIZED: Returns tuple for fast processing
     
     Args:
         user_lat: User's latitude
@@ -17,42 +18,40 @@ def check_geofence(user_lat, user_lon, artwork_lat, artwork_lon, radius_meters):
         radius_meters: Geofence radius in meters
     
     Returns:
-        dict with 'allowed' (bool) and 'distance' (float in meters)
+        tuple: (is_accessible: bool, distance_meters: float)
     """
     if not all([user_lat, user_lon, artwork_lat, artwork_lon]):
-        return {
-            'allowed': False,
-            'distance': None,
-            'message': 'Missing location data'
-        }
+        return False, None
     
-    # Calculate distance
+    # Calculate distance using geodesic (accurate for Earth's curvature)
     user_coords = (float(user_lat), float(user_lon))
     artwork_coords = (float(artwork_lat), float(artwork_lon))
     distance = geodesic(user_coords, artwork_coords).meters
     
     # Check if within radius
-    allowed = distance <= radius_meters
+    is_accessible = distance <= radius_meters
     
-    return {
-        'allowed': allowed,
-        'distance': round(distance, 2),
-        'message': f'You are {round(distance, 2)}m from this artwork' if not allowed else 'Access granted'
-    }
+    return is_accessible, distance
 
 
-def get_distance_message(distance_meters):
+def get_distance_message(distance_meters, radius_meters):
     """
     Get a user-friendly distance message
+    
+    Args:
+        distance_meters: Distance from artwork
+        radius_meters: Geofence radius
     """
-    if distance_meters < 50:
-        return "You're very close! Look around."
+    if distance_meters <= radius_meters:
+        return "✅ You're within range! Scan now."
+    elif distance_meters < 50:
+        return "📍 You're very close! Move a few more meters."
     elif distance_meters < 100:
-        return "You're nearby. Walk a bit closer."
+        return f"🚶 Walk {int(distance_meters - radius_meters)}m closer to unlock."
     elif distance_meters < 500:
-        return f"You're {int(distance_meters)}m away from the museum."
+        return f"🏛️ You're {int(distance_meters)}m away. Head to the artwork."
     elif distance_meters < 1000:
-        return f"You're {int(distance_meters)}m away. Head to the museum."
+        return f"🗺️ {int(distance_meters)}m away. Navigate to the museum."
     else:
         km = distance_meters / 1000
-        return f"You're {km:.1f}km away from the museum."
+        return f"🌍 {km:.1f}km away. Visit the museum to scan."

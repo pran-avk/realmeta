@@ -5,7 +5,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     MuseumViewSet, ArtistViewSet, ArtworkViewSet, VisitorSessionViewSet,
-    scan_artwork, log_interaction, submit_feedback,
+    scan_artwork, scan_artwork_combined, log_interaction, submit_feedback,
     get_recommendations, opt_out_analytics, health_check, check_geofence_access
 )
 
@@ -23,7 +23,10 @@ urlpatterns = [
     # Primary scanning method: Geofencing (location-based)
     path('geofence/check/', check_geofence_access, name='check-geofence'),
     
-    # Core AR scanning endpoint (anonymous)
+    # Combined scanning: Geofencing + Image Recognition (RECOMMENDED)
+    path('scan/combined/', scan_artwork_combined, name='scan-combined'),
+    
+    # Legacy AR scanning endpoint (image only)
     path('scan/', scan_artwork, name='scan-artwork'),
     
     # Analytics endpoints (anonymous)

@@ -152,15 +152,16 @@ def upload_artwork_submit(request):
         # TODO: Handle additional images if needed (can create separate ArtworkImage model)
         # For now, only the first image is saved to the main Artwork model
         
-        messages.success(request, f'Artwork "{title}" uploaded successfully!')
-        
         return JsonResponse({
             'success': True,
             'artwork_id': str(artwork.id),
-            'message': 'Artwork uploaded and translations are being generated'
+            'message': 'Artwork uploaded successfully! Translations are being generated in the background.'
         })
         
     except Exception as e:
+        import logging
+        logger = logging.getLogger('artscope')
+        logger.error(f'Upload failed: {str(e)}')
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -193,3 +194,68 @@ def delete_artwork_view(request, artwork_id):
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def edit_artwork_view(request, artwork_id):
+    """Edit artwork page"""
+    try:
+        artwork = Artwork.objects.get(id=artwork_id)
+        
+        # Check if user has permission
+        if artwork.museum != request.user.museum:
+            messages.error(request, 'Permission denied')
+            return redirect('dashboard')
+        
+        if request.method == 'POST':
+            try:
+                # Get form data
+                title = request.POST.get('title')
+                artist_name = request.POST.get('artist')
+                description = request.POST.get('description')
+                latitude = request.POST.get('latitude')
+                longitude = request.POST.get('longitude')
+                geofence_radius = request.POST.get('geofence_radius_meters', 100)
+                is_on_display = request.POST.get('is_on_display') == 'on'
+                
+                # Update artist
+                if artist_name != artwork.artist.name:
+                    artist, created = Artist.objects.get_or_create(
+                        name=artist_name,
+                        defaults={'biography': f'Artist of {title}'}
+                    )
+                    artwork.artist = artist
+                
+                # Update artwork fields
+                artwork.title = title
+                artwork.description = description
+                artwork.latitude = float(latitude)
+                artwork.longitude = float(longitude)
+                artwork.geofence_radius_meters = int(geofence_radius)
+                artwork.is_on_display = is_on_display
+                
+                # Handle image replacement
+                if 'image' in request.FILES:
+                    artwork.image = request.FILES['image']
+                
+                artwork.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Artwork updated successfully'
+                })
+                
+            except Exception as e:
+                import logging
+                logger = logging.getLogger('artscope')
+                logger.error(f'Update failed: {str(e)}')
+                return JsonResponse({'error': str(e)}, status=500)
+        
+        return render(request, 'edit_artwork.html', {'artwork': artwork})
+        
+    except Artwork.DoesNotExist:
+        messages.error(request, 'Artwork not found')
+        return redirect('dashboard')
+    except Exception as e:
+        messages.error(request, str(e))
+        return redirect('dashboard')

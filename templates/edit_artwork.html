@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Artwork - {{ artwork.title }}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 25px;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .required {
+            color: #e74c3c;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .image-preview {
+            margin-bottom: 15px;
+        }
+
+        .image-preview img {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        small {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Edit Artwork</h1>
+            <p>Update artwork details</p>
+        </div>
+
+        <div class="form-container">
+            <div id="alertBox" class="alert"></div>
+
+            <form id="editForm" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <!-- Title -->
+                <div class="form-group">
+                    <label for="title">Artwork Title <span class="required">*</span></label>
+                    <input type="text" id="title" name="title" value="{{ artwork.title }}" required>
+                </div>
+
+                <!-- Artist -->
+                <div class="form-group">
+                    <label for="artist">Artist Name <span class="required">*</span></label>
+                    <input type="text" id="artist" name="artist" value="{{ artwork.artist.name }}" required>
+                </div>
+
+                <!-- Description -->
+                <div class="form-group">
+                    <label for="description">Description <span class="required">*</span></label>
+                    <textarea id="description" name="description" required>{{ artwork.description }}</textarea>
+                </div>
+
+                <!-- Current Image -->
+                <div class="form-group">
+                    <label>Current Image</label>
+                    <div class="image-preview">
+                        <img src="{{ artwork.image.url }}" alt="{{ artwork.title }}">
+                    </div>
+                    <label for="image">Replace Image (optional)</label>
+                    <input type="file" id="image" name="image" accept="image/jpeg,image/jpg,image/png,image/webp">
+                    <small>Leave empty to keep current image</small>
+                </div>
+
+                <!-- Location -->
+                <div class="form-group">
+                    <label for="latitude">Latitude <span class="required">*</span></label>
+                    <input type="text" id="latitude" name="latitude" value="{{ artwork.latitude }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="longitude">Longitude <span class="required">*</span></label>
+                    <input type="text" id="longitude" name="longitude" value="{{ artwork.longitude }}" required>
+                </div>
+
+                <!-- Geofence Radius -->
+                <div class="form-group">
+                    <label for="geofence_radius">Geofence Radius (meters)</label>
+                    <input type="number" id="geofence_radius" name="geofence_radius_meters" value="{{ artwork.geofence_radius_meters }}" min="10" max="1000">
+                    <small>Distance within which the artwork can be scanned (10-1000 meters)</small>
+                </div>
+
+                <!-- Display Status -->
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="is_on_display" name="is_on_display" {% if artwork.is_on_display %}checked{% endif %}>
+                        <label for="is_on_display">Display on museum floor</label>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+                    <a href="/dashboard/" class="btn btn-secondary">← Back to Dashboard</a>
+                </div>
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Saving changes...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const editForm = document.getElementById('editForm');
+        const loading = document.getElementById('loading');
+        const alertBox = document.getElementById('alertBox');
+
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(editForm);
+
+            loading.classList.add('show');
+            editForm.style.display = 'none';
+
+            try {
+                const response = await fetch('', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✨ Artwork updated successfully! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard/';
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'Update failed');
+                }
+            } catch (error) {
+                loading.classList.remove('show');
+                editForm.style.display = 'block';
+                showAlert('Failed to update artwork: ' + error.message, 'error');
+            }
+        });
+
+        function showAlert(message, type) {
+            alertBox.textContent = message;
+            alertBox.className = `alert ${type} show`;
+            setTimeout(() => {
+                alertBox.classList.remove('show');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

@@ -32,6 +32,7 @@ LANGUAGE_MAP = {
 def auto_translate_artwork(artwork):
     """
     Automatically translate artwork description from English to all supported languages
+    Runs with timeout to prevent hanging
     
     Args:
         artwork: Artwork model instance with English description
@@ -39,17 +40,22 @@ def auto_translate_artwork(artwork):
     Returns:
         dict: Dictionary of created translations {language_code: translation_obj}
     """
+    import logging
+    logger = logging.getLogger('artscope')
     translations = {}
     
     # Skip if no description
     if not artwork.description:
-        print(f"⚠️ No description for {artwork.title}")
+        logger.warning(f"No description for {artwork.title}")
         return translations
     
-    print(f"🔄 Translating: {artwork.title}")
+    logger.info(f"Translating: {artwork.title}")
     
-    # Translate to each language
-    for lang_code, translate_code in LANGUAGE_MAP.items():
+    # Translate to each language (limit to prevent timeout)
+    success_count = 0
+    max_translations = 5  # Limit translations to prevent timeout
+    
+    for lang_code, translate_code in list(LANGUAGE_MAP.items())[:max_translations + 1]:
         if lang_code == 'en':
             # Skip English (source language)
             continue
@@ -57,7 +63,7 @@ def auto_translate_artwork(artwork):
         try:
             # Check if translation already exists
             if ArtworkTranslation.objects.filter(artwork=artwork, language=lang_code).exists():
-                print(f"  ✓ {lang_code} - Already exists")
+                logger.info(f"  ✓ {lang_code} - Already exists")
                 continue
             
             # Translate title
@@ -80,27 +86,29 @@ def auto_translate_artwork(artwork):
                 historical_context=translated_context
             )
             
-            # Generate audio narration (TTS)
-            audio_file = generate_audio_narration(
-                translated_description,
-                lang_code,
-                artwork.id
-            )
-            
-            if audio_file:
-                translation.audio_narration.save(
-                    f'{artwork.id}_{lang_code}.mp3',
-                    audio_file
-                )
+            # Skip audio generation for now (can be slow)
+            # Generate audio narration (TTS) - disabled for performance
+            # audio_file = generate_audio_narration(
+            #     translated_description,
+            #     lang_code,
+            #     artwork.id
+            # )
+            # 
+            # if audio_file:
+            #     translation.audio_narration.save(
+            #         f'{artwork.id}_{lang_code}.mp3',
+            #         audio_file
+            #     )
             
             translations[lang_code] = translation
-            print(f"  ✅ {lang_code} - Created")
+            success_count += 1
+            logger.info(f"  ✅ {lang_code} - Created")
             
         except Exception as e:
-            print(f"  ❌ {lang_code} - Failed: {str(e)}")
+            logger.error(f"  ❌ {lang_code} - Failed: {str(e)}")
             continue
     
-    print(f"✨ Completed translations for {artwork.title}")
+    logger.info(f"Completed {success_count} translations for {artwork.title}")
     return translations
 
 

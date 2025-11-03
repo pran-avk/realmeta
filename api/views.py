@@ -178,6 +178,162 @@ class ArtworkViewSet(viewsets.ModelViewSet):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+def scan_artwork_combined(request):
+    """
+    Combined scanning: Geofencing + Image Recognition
+    
+    Step 1: Check GPS location (geofencing)
+    Step 2: If within range, use image recognition to identify specific artwork
+    
+    POST data:
+    - image: Artwork photo from camera
+    - latitude: User's GPS latitude
+    - longitude: User's GPS longitude
+    - museum_id: Optional museum ID filter
+    
+    Returns:
+    - Matched artwork with similarity score
+    - Access status (allowed/denied based on geofence)
+    """
+    from core.geolocation_utils import check_geofence
+    from embeddings.mobilenet_engine import mobilenet_engine
+    
+    # Validate required fields
+    if 'image' not in request.FILES:
+        return Response({'error': 'Image required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not request.data.get('latitude') or not request.data.get('longitude'):
+        return Response({'error': 'GPS location required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user_lat = float(request.data.get('latitude'))
+        user_lon = float(request.data.get('longitude'))
+        image_file = request.FILES['image']
+        museum_id = request.data.get('museum_id')
+        
+        # STEP 1: Filter artworks by GPS location (geofencing)
+        artworks_query = Artwork.objects.filter(is_on_display=True)
+        if museum_id:
+            artworks_query = artworks_query.filter(museum_id=museum_id)
+        
+        # Filter artworks with GPS and embeddings
+        artworks_query = artworks_query.exclude(
+            latitude__isnull=True
+        ).exclude(
+            longitude__isnull=True
+        ).exclude(
+            embedding__isnull=True
+        )
+        
+        # Check geofencing for all artworks
+        accessible_artworks = []
+        for artwork in artworks_query:
+            is_accessible, distance = check_geofence(
+                user_lat, user_lon,
+                float(artwork.latitude),
+                float(artwork.longitude),
+                artwork.geofence_radius_meters
+            )
+            
+            if is_accessible:
+                accessible_artworks.append({
+                    'artwork': artwork,
+                    'distance': distance
+                })
+        
+        if not accessible_artworks:
+            return Response({
+                'error': 'No artworks within range',
+                'message': 'You need to be near an artwork to scan it',
+                'access_denied': True
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        logger.info(f"Found {len(accessible_artworks)} accessible artworks within geofence")
+        
+        # STEP 2: Use image recognition to identify which artwork
+        # Generate embedding for scanned image
+        image_data = image_file.read()
+        query_embedding = mobilenet_engine.generate_embedding(image_data)
+        
+        # Compare with accessible artworks only
+        similarities = []
+        for item in accessible_artworks:
+            artwork = item['artwork']
+            artwork_embedding = np.array(artwork.embedding)
+            
+            similarity = mobilenet_engine.compute_similarity(
+                query_embedding,
+                artwork_embedding
+            )
+            
+            similarities.append({
+                'artwork': artwork,
+                'similarity': similarity,
+                'distance_meters': item['distance']
+            })
+        
+        # Sort by similarity score
+        similarities.sort(key=lambda x: x['similarity'], reverse=True)
+        
+        if not similarities:
+            return Response({
+                'error': 'No matching artwork found',
+                'message': 'Cannot identify the artwork in the image'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get best match
+        best_match = similarities[0]
+        artwork = best_match['artwork']
+        similarity_score = best_match['similarity']
+        
+        # Check similarity threshold (70% minimum)
+        if similarity_score < 0.70:
+            return Response({
+                'error': 'Low confidence match',
+                'message': 'Please take a clearer photo of the artwork',
+                'similarity_score': float(similarity_score),
+                'suggested_artworks': [
+                    {
+                        'id': str(s['artwork'].id),
+                        'title': s['artwork'].title,
+                        'similarity': float(s['similarity'])
+                    }
+                    for s in similarities[:3]
+                ]
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Success! Return matched artwork
+        serializer = ArtworkDetailSerializer(artwork)
+        
+        logger.info(f"Artwork matched: {artwork.title} (similarity: {similarity_score:.2f})")
+        
+        return Response({
+            'success': True,
+            'artwork': serializer.data,
+            'similarity_score': float(similarity_score),
+            'distance_meters': best_match['distance_meters'],
+            'confidence': 'high' if similarity_score > 0.85 else 'medium',
+            'scanning_method': 'geofencing + image_recognition',
+            'alternatives': [
+                {
+                    'id': str(s['artwork'].id),
+                    'title': s['artwork'].title,
+                    'similarity': float(s['similarity'])
+                }
+                for s in similarities[1:4]  # Show top 3 alternatives
+            ] if len(similarities) > 1 else []
+        })
+        
+    except Exception as e:
+        logger.error(f"Combined scan failed: {str(e)}")
+        return Response({
+            'error': str(e),
+            'message': 'Scanning failed. Please try again.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def scan_artwork(request):
     """
     Scan an artwork using image and return matched artwork with details

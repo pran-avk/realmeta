@@ -9,7 +9,7 @@ from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from core.views import (
     register_view, login_view, logout_view, dashboard_view,
-    upload_artwork_view, upload_artwork_submit, delete_artwork_view
+    upload_artwork_view, upload_artwork_submit, delete_artwork_view, edit_artwork_view
 )
 
 urlpatterns = [
@@ -33,6 +33,7 @@ urlpatterns = [
     path('upload-artwork/submit/', upload_artwork_submit, name='upload_artwork_submit'),
     
     # Artwork Management
+    path('edit-artwork/<uuid:artwork_id>/', edit_artwork_view, name='edit_artwork'),
     path('delete-artwork/<uuid:artwork_id>/', delete_artwork_view, name='delete_artwork'),
     
     # Frontend Templates (No map requirement)
