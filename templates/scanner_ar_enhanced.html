@@ -390,6 +390,7 @@
         let autoScanInterval = null;
         let currentMatch = null;
         let currentSimilarity = 0;
+        let scanResults = {}; // Store all scan results
 
         // Initialize camera
         async function initCamera() {
@@ -537,36 +538,56 @@
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
 
-            console.log('🎯 Scanning... Canvas size:', canvas.width, 'x', canvas.height);
+            console.log('🎯 Scanning ALL artworks first...');
 
-            // Compare with ALL artworks FIRST - collect all results
-            let allResults = [];
-            
+            // STEP 1: Scan ALL artworks and collect results
+            let scanPromises = [];
             for (const artwork of locationArtworks) {
-                const similarity = await compareWithArtwork(canvas, artwork);
-                console.log(`📊 ${artwork.title}: ${(similarity * 100).toFixed(1)}% match`);
-                allResults.push({ artwork, similarity });
+                scanPromises.push(
+                    compareWithArtwork(canvas, artwork).then(similarity => ({
+                        artwork: artwork,
+                        similarity: similarity
+                    }))
+                );
             }
 
-            // Sort by similarity (highest first)
+            // STEP 2: Wait for ALL scans to complete
+            let allResults = await Promise.all(scanPromises);
+            
+            // STEP 3: Store results in local storage
+            allResults.forEach(result => {
+                scanResults[result.artwork.id] = {
+                    title: result.artwork.title,
+                    similarity: result.similarity,
+                    timestamp: Date.now()
+                };
+            });
+            
+            // Log all results
+            console.log('📊 All scan results:');
+            allResults.forEach(result => {
+                console.log(`  ${result.artwork.title}: ${(result.similarity * 100).toFixed(1)}%`);
+            });
+
+            // STEP 4: Sort by similarity (highest first)
             allResults.sort((a, b) => b.similarity - a.similarity);
             
-            // Get the best match AFTER all comparisons
+            // STEP 5: Get ONLY the best match
             const bestResult = allResults[0];
             const bestMatch = bestResult.artwork;
             const maxSimilarity = bestResult.similarity;
 
-            console.log(`🏆 Best match: ${bestMatch.title} at ${(maxSimilarity * 100).toFixed(1)}%`);
+            console.log(`🏆 BEST MATCH (after comparing all): ${bestMatch.title} at ${(maxSimilarity * 100).toFixed(1)}%`);
+            console.log('💾 Results stored locally:', scanResults);
 
-            // Show result if good match (lowered threshold to 20%)
+            // STEP 6: Show ONLY if best match meets threshold
             if (maxSimilarity > 0.20) {
-                console.log('✅ Match found! Showing AR view...');
+                console.log('✅ Showing ONLY the highest match');
                 currentMatch = bestMatch;
                 currentSimilarity = maxSimilarity;
                 showARView(bestMatch, maxSimilarity);
             } else {
-                console.log('❌ No match found (threshold: 20%)');
-                // No match - hide AR view
+                console.log('❌ Best match below 20% threshold - not showing anything');
                 hideARView();
             }
         }
@@ -609,7 +630,6 @@
                     }
                     
                     const similarity = matchingPixels / totalPixels;
-                    console.log(`  📷 ${artwork.title}: ${matchingPixels}/${totalPixels} pixels matched`);
                     resolve(similarity);
                 };
                 
