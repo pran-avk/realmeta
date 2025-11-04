@@ -334,6 +334,93 @@ def scan_artwork_combined(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+def get_location_artworks(request):
+    """
+    Get ALL artworks within geofence range for client-side similarity checking
+    
+    POST data:
+    - latitude: User's GPS latitude
+    - longitude: User's GPS longitude  
+    - museum_id: Optional museum ID filter
+    
+    Returns:
+    - List of all accessible artworks with full data for frontend comparison
+    """
+    from core.geolocation_utils import check_geofence
+    
+    # Validate required fields
+    if not request.data.get('latitude') or not request.data.get('longitude'):
+        return Response({'error': 'GPS location required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user_lat = float(request.data.get('latitude'))
+        user_lon = float(request.data.get('longitude'))
+        museum_id = request.data.get('museum_id')
+        
+        # Filter artworks by museum and display status
+        artworks_query = Artwork.objects.filter(is_on_display=True)
+        if museum_id:
+            artworks_query = artworks_query.filter(museum_id=museum_id)
+        
+        # Filter artworks with GPS coordinates
+        artworks_query = artworks_query.exclude(
+            latitude__isnull=True
+        ).exclude(
+            longitude__isnull=True
+        ).select_related('artist', 'museum')
+        
+        # Check geofencing for all artworks and collect accessible ones
+        accessible_artworks = []
+        for artwork in artworks_query:
+            is_accessible, distance = check_geofence(
+                user_lat, user_lon,
+                float(artwork.latitude),
+                float(artwork.longitude),
+                artwork.geofence_radius_meters
+            )
+            
+            if is_accessible:
+                accessible_artworks.append({
+                    'artwork': artwork,
+                    'distance': distance
+                })
+        
+        if not accessible_artworks:
+            return Response({
+                'error': 'No artworks within range',
+                'message': 'You need to be near an artwork to scan it',
+                'artworks': [],
+                'count': 0
+            }, status=status.HTTP_200_OK)
+        
+        # Serialize all accessible artworks with full details
+        artworks_data = []
+        for item in accessible_artworks:
+            artwork = item['artwork']
+            serializer = ArtworkDetailSerializer(artwork)
+            artwork_data = serializer.data
+            artwork_data['distance_meters'] = item['distance']
+            artworks_data.append(artwork_data)
+        
+        logger.info(f"Returning {len(artworks_data)} artworks within geofence for client-side matching")
+        
+        return Response({
+            'success': True,
+            'artworks': artworks_data,
+            'count': len(artworks_data),
+            'message': f'Found {len(artworks_data)} artworks in your location'
+        })
+        
+    except Exception as e:
+        logger.error(f"Location artworks fetch failed: {str(e)}")
+        return Response({
+            'error': str(e),
+            'message': 'Failed to fetch location artworks'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def scan_artwork(request):
     """
     Scan an artwork using image and return matched artwork with details
@@ -975,3 +1062,145 @@ def get_nearest_waypoint(request):
     except Exception as e:
         logger.error(f'Nearest waypoint search failed: {str(e)}')
         return Response({'error': str(e)}, status=500)
+
+
+# ============================================
+# FLOOR MAP API ENDPOINTS
+# ============================================
+
+@api_view(['GET', 'POST'])
+def floor_maps_list(request):
+    """
+    List all floor maps or create new one (staff only)
+    """
+    from core.models import FloorMap
+    from .serializers import FloorMapSerializer, FloorMapDetailSerializer
+    
+    if request.method == 'GET':
+        museum_id = request.query_params.get('museum_id')
+        queryset = FloorMap.objects.filter(is_active=True)
+        
+        if museum_id:
+            queryset = queryset.filter(museum_id=museum_id)
+        
+        queryset = queryset.order_by('museum', 'floor_level')
+        serializer = FloorMapDetailSerializer(queryset, many=True)
+        
+        # Group by museum
+        result = {}
+        for floor in serializer.data:
+            museum_id = str(floor['museum'])
+            if museum_id not in result:
+                result[museum_id] = {
+                    'museum_id': museum_id,
+                    'floors': []
+                }
+            result[museum_id]['floors'].append(floor)
+        
+        return Response(list(result.values()))
+    
+    elif request.method == 'POST':
+        # Staff only - create floor map
+        serializer = FloorMapSerializer(data=request.data)
+        if serializer.is_valid():
+            # Auto-set image dimensions
+            floor_map = serializer.save(
+                museum=request.user.museum,
+                created_by=request.user
+            )
+            
+            # Get image dimensions
+            if floor_map.floor_plan_image:
+                from PIL import Image
+                img = Image.open(floor_map.floor_plan_image.path)
+                floor_map.image_width = img.width
+                floor_map.image_height = img.height
+                floor_map.save()
+            
+            return Response(FloorMapSerializer(floor_map).data, status=201)
+        
+        return Response(serializer.errors, status=400)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def floor_map_detail(request, floor_id):
+    """
+    Get, update, or delete specific floor map
+    """
+    from core.models import FloorMap
+    from .serializers import FloorMapDetailSerializer, FloorMapSerializer
+    
+    try:
+        floor_map = FloorMap.objects.get(id=floor_id)
+    except FloorMap.DoesNotExist:
+        return Response({'error': 'Floor map not found'}, status=404)
+    
+    if request.method == 'GET':
+        serializer = FloorMapDetailSerializer(floor_map)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        serializer = FloorMapSerializer(floor_map, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+    
+    elif request.method == 'DELETE':
+        floor_map.delete()
+        return Response({'success': True}, status=204)
+
+
+@api_view(['GET', 'POST'])
+def artwork_map_positions(request):
+    """
+    List all artwork positions or create new position (staff only)
+    """
+    from core.models import ArtworkMapPosition
+    from .serializers import ArtworkMapPositionSerializer
+    
+    if request.method == 'GET':
+        floor_id = request.query_params.get('floor_id')
+        queryset = ArtworkMapPosition.objects.filter(is_visible=True).select_related('artwork', 'artwork__artist')
+        
+        if floor_id:
+            queryset = queryset.filter(floor_map_id=floor_id)
+        
+        serializer = ArtworkMapPositionSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = ArtworkMapPositionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def artwork_map_position_detail(request, position_id):
+    """
+    Get, update, or delete artwork position
+    """
+    from core.models import ArtworkMapPosition
+    from .serializers import ArtworkMapPositionSerializer
+    
+    try:
+        position = ArtworkMapPosition.objects.get(id=position_id)
+    except ArtworkMapPosition.DoesNotExist:
+        return Response({'error': 'Position not found'}, status=404)
+    
+    if request.method == 'GET':
+        serializer = ArtworkMapPositionSerializer(position)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        serializer = ArtworkMapPositionSerializer(position, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+    
+    elif request.method == 'DELETE':
+        position.delete()
+        return Response({'success': True}, status=204)

@@ -628,4 +628,149 @@ class VisitorNavigation(models.Model):
         ]
     
     def __str__(self):
-        return f"Navigation {self.id} - {self.status}"
+        return f"Navigation {self.status} - {self.target_artwork.title if self.target_artwork else 'No target'}"
+
+
+class FloorMap(models.Model):
+    """
+    Museum floor plans with interactive artwork positioning
+    Supports multiple floors per museum
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    museum = models.ForeignKey(Museum, on_delete=models.CASCADE, related_name='floor_maps')
+    
+    # Floor Details
+    floor_level = models.IntegerField(
+        help_text="Floor number (1=Ground, 2=First floor, 0=Basement, etc.)"
+    )
+    floor_name = models.CharField(
+        max_length=100,
+        help_text="Display name (e.g., 'Ground Floor', 'Renaissance Gallery')"
+    )
+    
+    # Floor Plan Image
+    floor_plan_image = models.ImageField(
+        upload_to='museum/floor_maps/',
+        help_text="Upload floor plan image (PNG, JPG recommended)"
+    )
+    
+    # Image Dimensions (for coordinate mapping)
+    image_width = models.IntegerField(
+        default=1000,
+        help_text="Floor plan image width in pixels"
+    )
+    image_height = models.IntegerField(
+        default=1000,
+        help_text="Floor plan image height in pixels"
+    )
+    
+    # Real-world dimensions (optional, for scale)
+    real_width_meters = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Actual floor width in meters (for scale calculation)"
+    )
+    real_height_meters = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Actual floor height in meters (for scale calculation)"
+    )
+    
+    # Metadata
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    display_order = models.IntegerField(
+        default=0,
+        help_text="Display order in floor selector (lower numbers first)"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        MuseumStaff,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_floor_maps'
+    )
+    
+    class Meta:
+        ordering = ['museum', 'floor_level']
+        unique_together = ['museum', 'floor_level']
+        indexes = [
+            models.Index(fields=['museum', 'is_active']),
+            models.Index(fields=['floor_level']),
+        ]
+    
+    def __str__(self):
+        return f"{self.museum.name} - {self.floor_name}"
+    
+    def get_scale(self):
+        """Calculate meters per pixel"""
+        if self.real_width_meters and self.image_width:
+            return self.real_width_meters / self.image_width
+        return None
+
+
+class ArtworkMapPosition(models.Model):
+    """
+    Artwork positions on floor maps
+    Maps artwork to specific x,y coordinates on floor plan
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    artwork = models.OneToOneField(
+        Artwork,
+        on_delete=models.CASCADE,
+        related_name='map_position'
+    )
+    floor_map = models.ForeignKey(
+        FloorMap,
+        on_delete=models.CASCADE,
+        related_name='artwork_positions'
+    )
+    
+    # Position on floor map (pixel coordinates)
+    x_position = models.IntegerField(
+        help_text="X coordinate on floor plan image (pixels from left)"
+    )
+    y_position = models.IntegerField(
+        help_text="Y coordinate on floor plan image (pixels from top)"
+    )
+    
+    # Optional rotation for artwork icon
+    rotation_degrees = models.IntegerField(
+        default=0,
+        help_text="Icon rotation (0-360 degrees)"
+    )
+    
+    # Display options
+    pin_color = models.CharField(
+        max_length=7,
+        default='#D4AF37',
+        help_text="Pin color in hex (default: gold)"
+    )
+    pin_size = models.CharField(
+        max_length=20,
+        default='medium',
+        choices=[
+            ('small', 'Small'),
+            ('medium', 'Medium'),
+            ('large', 'Large'),
+        ]
+    )
+    
+    # Metadata
+    is_visible = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['floor_map', 'artwork']
+        indexes = [
+            models.Index(fields=['floor_map', 'is_visible']),
+            models.Index(fields=['artwork']),
+        ]
+    
+    def __str__(self):
+        return f"{self.artwork.title} on {self.floor_map.floor_name}"

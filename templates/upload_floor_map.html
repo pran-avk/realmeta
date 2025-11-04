@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Floor Map - ArtScope</title>
+    <link rel="stylesheet" href="/static/css/global.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-body);
+            background: var(--deep-charcoal);
+            color: white;
+        }
+
+        .header {
+            background: rgba(29, 29, 29, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 40px;
+            border-bottom: 1px solid var(--gold);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-family: var(--font-heading);
+            font-size: 28px;
+            margin: 0;
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-button {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(212, 175, 55, 0.2);
+            border-color: var(--gold);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .upload-section {
+            background: rgba(29, 29, 29, 0.8);
+            border: 2px solid rgba(212, 175, 55, 0.3);
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--gold);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--gold);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .file-upload {
+            border: 2px dashed rgba(212, 175, 55, 0.5);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload:hover {
+            border-color: var(--gold);
+            background: rgba(212, 175, 55, 0.1);
+        }
+
+        .file-upload.has-file {
+            border-style: solid;
+            border-color: var(--gold);
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            margin: 20px 0;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .preview-image.show {
+            display: block;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--gold-gradient);
+            color: var(--deep-charcoal);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            margin-left: 10px;
+        }
+
+        /* Pin positioning tool */
+        .pin-tool-section {
+            background: rgba(29, 29, 29, 0.8);
+            border: 2px solid rgba(212, 175, 55, 0.3);
+            border-radius: 16px;
+            padding: 40px;
+        }
+
+        .pin-tool-section h2 {
+            font-family: var(--font-heading);
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: var(--gold);
+        }
+
+        .canvas-container {
+            position: relative;
+            max-width: 100%;
+            margin: 20px 0;
+            border: 2px solid var(--gold);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0a0a0a;
+        }
+
+        #positioningCanvas {
+            max-width: 100%;
+            cursor: crosshair;
+            display: block;
+        }
+
+        .artwork-selector {
+            margin: 20px 0;
+        }
+
+        .artwork-pins-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .pin-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pin-item .info {
+            flex: 1;
+        }
+
+        .pin-item .title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .pin-item .coords {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .pin-item .remove-btn {
+            padding: 8px 16px;
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid rgba(255, 0, 0, 0.4);
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pin-item .remove-btn:hover {
+            background: rgba(255, 0, 0, 0.4);
+        }
+
+        .help-text {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ Upload Floor Map</h1>
+        <a href="/dashboard/" class="back-button">← Back to Dashboard</a>
+    </div>
+
+    <div class="container">
+        <!-- Upload Floor Plan -->
+        <div class="upload-section">
+            <h2 style="font-family: var(--font-heading); color: var(--gold); margin-bottom: 30px;">
+                Step 1: Upload Floor Plan Image
+            </h2>
+
+            <form id="floorMapForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="floorLevel">Floor Level *</label>
+                    <input type="number" id="floorLevel" name="floor_level" required placeholder="e.g., 1 for Ground Floor, 2 for First Floor">
+                </div>
+
+                <div class="form-group">
+                    <label for="floorName">Floor Name *</label>
+                    <input type="text" id="floorName" name="floor_name" required placeholder="e.g., Ground Floor, Renaissance Gallery">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="3" placeholder="Optional description of this floor"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Floor Plan Image *</label>
+                    <div class="file-upload" id="fileUpload" onclick="document.getElementById('floorPlanImage').click()">
+                        <p style="font-size: 18px; margin-bottom: 10px;">📁 Click to upload floor plan</p>
+                        <p class="help-text">Supported formats: PNG, JPG, JPEG (Max 10MB)</p>
+                        <input type="file" id="floorPlanImage" name="floor_plan_image" accept="image/*" style="display: none;" required>
+                    </div>
+                    <img id="previewImage" class="preview-image" alt="Preview">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label for="realWidth">Real Width (meters)</label>
+                        <input type="number" step="0.1" id="realWidth" name="real_width_meters" placeholder="e.g., 50.5">
+                        <p class="help-text">Optional: Actual floor width for scale</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="realHeight">Real Height (meters)</label>
+                        <input type="number" step="0.1" id="realHeight" name="real_height_meters" placeholder="e.g., 30.0">
+                        <p class="help-text">Optional: Actual floor height for scale</p>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Upload Floor Map</button>
+            </form>
+        </div>
+
+        <!-- Position Artworks on Map -->
+        <div class="pin-tool-section" id="pinToolSection" style="display: none;">
+            <h2>Step 2: Position Artworks on Map</h2>
+            <p class="help-text">Click on the floor plan to place artwork pins. The coordinates will be saved automatically.</p>
+
+            <div class="artwork-selector">
+                <label for="artworkSelect" style="color: var(--gold); font-weight: 600; display: block; margin-bottom: 10px;">
+                    Select Artwork to Position:
+                </label>
+                <select id="artworkSelect" style="width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; color: white; font-size: 16px;">
+                    <option value="">-- Select an artwork --</option>
+                </select>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="positioningCanvas"></canvas>
+            </div>
+
+            <div class="artwork-pins-list" id="pinsList">
+                <h3 style="color: var(--gold); margin-bottom: 15px;">Positioned Artworks:</h3>
+                <!-- Pin items will be inserted here -->
+            </div>
+
+            <button class="btn btn-primary" onclick="window.location.href='/museum-map/'">
+                ✓ Done - View Map
+            </button>
+            <button class="btn btn-secondary" onclick="window.location.href='/dashboard/'">
+                Back to Dashboard
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFloorMapId = null;
+        let artworks = [];
+        let pins = [];
+        let canvas, ctx;
+        let floorPlanImg = new Image();
+
+        // Get CSRF token from cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+
+        // Preview uploaded image
+        document.getElementById('floorPlanImage').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('previewImage').src = e.target.result;
+                    document.getElementById('previewImage').classList.add('show');
+                    document.getElementById('fileUpload').classList.add('has-file');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Upload floor map
+        document.getElementById('floorMapForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/api/floor-maps/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    uploadedFloorMapId = data.id;
+                    
+                    alert('Floor map uploaded successfully! Now position your artworks.');
+                    
+                    // Load artworks and show positioning tool
+                    await loadArtworks();
+                    setupPositioningTool(data);
+                    
+                    document.getElementById('pinToolSection').style.display = 'block';
+                    document.getElementById('pinToolSection').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert('Failed to upload floor map. Please try again.');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('An error occurred. Please try again.');
+            }
+        });
+
+        // Load museum artworks
+        async function loadArtworks() {
+            try {
+                const response = await fetch('/api/artworks/', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    }
+                });
+                
+                const data = await response.json();
+                artworks = data.results || data;
+                
+                const select = document.getElementById('artworkSelect');
+                select.innerHTML = '<option value="">-- Select an artwork --</option>' +
+                    artworks.map(art => `<option value="${art.id}">${art.title} - ${art.artist || 'Unknown'}</option>`).join('');
+            } catch (error) {
+                console.error('Failed to load artworks:', error);
+            }
+        }
+
+        // Setup positioning canvas
+        function setupPositioningTool(floorData) {
+            canvas = document.getElementById('positioningCanvas');
+            ctx = canvas.getContext('2d');
+
+            floorPlanImg.onload = () => {
+                // Set canvas size to match image
+                canvas.width = floorPlanImg.width;
+                canvas.height = floorPlanImg.height;
+                
+                drawCanvas();
+            };
+            
+            floorPlanImg.src = floorData.floor_plan_image;
+
+            // Click to place pin
+            canvas.addEventListener('click', (e) => {
+                const artworkId = document.getElementById('artworkSelect').value;
+                if (!artworkId) {
+                    alert('Please select an artwork first!');
+                    return;
+                }
+
+                const rect = canvas.getBoundingClientRect();
+                const x = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
+                const y = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
+
+                placePinAt(artworkId, x, y);
+            });
+        }
+
+        // Place pin at coordinates
+        async function placePinAt(artworkId, x, y) {
+            const artwork = artworks.find(a => a.id === artworkId);
+            if (!artwork) return;
+
+            // Save to server
+            try {
+                const response = await fetch('/api/artwork-map-positions/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    },
+                    body: JSON.stringify({
+                        artwork_id: artworkId,
+                        floor_map_id: uploadedFloorMapId,
+                        x_position: x,
+                        y_position: y
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    pins.push({ ...data, artwork });
+                    drawCanvas();
+                    updatePinsList();
+                    
+                    // Reset selector
+                    document.getElementById('artworkSelect').value = '';
+                } else {
+                    alert('Failed to save pin position.');
+                }
+            } catch (error) {
+                console.error('Failed to save pin:', error);
+            }
+        }
+
+        // Draw canvas with floor plan and pins
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(floorPlanImg, 0, 0);
+
+            // Draw pins
+            pins.forEach(pin => {
+                ctx.fillStyle = pin.pin_color || '#D4AF37';
+                ctx.beginPath();
+                ctx.arc(pin.x_position, pin.y_position, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px sans-serif';
+                ctx.fillText(pin.artwork.title.substring(0, 20), pin.x_position + 12, pin.y_position + 4);
+            });
+        }
+
+        // Update pins list
+        function updatePinsList() {
+            const container = document.getElementById('pinsList');
+            const listHTML = pins.map((pin, index) => `
+                <div class="pin-item">
+                    <div class="info">
+                        <div class="title">${pin.artwork.title}</div>
+                        <div class="coords">Position: (${pin.x_position}, ${pin.y_position})</div>
+                    </div>
+                    <button class="remove-btn" onclick="removePin(${index})">Remove</button>
+                </div>
+            `).join('');
+
+            container.innerHTML = '<h3 style="color: var(--gold); margin-bottom: 15px;">Positioned Artworks:</h3>' + listHTML;
+        }
+
+        // Remove pin
+        async function removePin(index) {
+            const pin = pins[index];
+            
+            try {
+                await fetch(`/api/artwork-map-positions/${pin.id}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    }
+                });
+
+                pins.splice(index, 1);
+                drawCanvas();
+                updatePinsList();
+            } catch (error) {
+                console.error('Failed to remove pin:', error);
+            }
+        }
+    </script>
+</body>
+</html>

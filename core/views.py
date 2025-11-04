@@ -290,3 +290,19 @@ def visitor_navigation_view(request):
     Public view - no login required
     """
     return render(request, 'visitor_navigation.html')
+
+
+@login_required
+def upload_floor_map_view(request):
+    """
+    Staff interface for uploading floor maps and positioning artworks
+    """
+    return render(request, 'upload_floor_map.html')
+
+
+def museum_map_view(request):
+    """
+    Interactive museum floor map with artwork pins
+    Public view - no login required
+    """
+    return render(request, 'museum_map.html')

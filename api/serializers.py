@@ -4,7 +4,8 @@ DRF Serializers for ArtScope API
 from rest_framework import serializers
 from core.models import (
     Museum, Artist, Artwork, VisitorSession, 
-    ArtworkInteraction, VisitorFeedback
+    ArtworkInteraction, VisitorFeedback,
+    FloorMap, ArtworkMapPosition
 )
 
 
@@ -153,3 +154,63 @@ class RecommendationSerializer(serializers.Serializer):
     artwork = ArtworkListSerializer()
     score = serializers.FloatField()
     reason = serializers.CharField()
+
+
+class FloorMapSerializer(serializers.ModelSerializer):
+    """Floor map serializer with artwork positions"""
+    
+    artwork_count = serializers.IntegerField(source='artwork_positions.count', read_only=True)
+    
+    class Meta:
+        model = FloorMap
+        fields = [
+            'id', 'museum', 'floor_level', 'floor_name', 'floor_plan_image',
+            'image_width', 'image_height', 'real_width_meters', 'real_height_meters',
+            'description', 'is_active', 'display_order', 'artwork_count', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class ArtworkMapPositionSerializer(serializers.ModelSerializer):
+    """Artwork position on floor map"""
+    
+    artwork_title = serializers.CharField(source='artwork.title', read_only=True)
+    artwork_artist = serializers.CharField(source='artwork.artist.name', read_only=True, allow_null=True)
+    artwork_image = serializers.ImageField(source='artwork.image', read_only=True)
+    
+    class Meta:
+        model = ArtworkMapPosition
+        fields = [
+            'id', 'artwork', 'floor_map', 'x_position', 'y_position',
+            'rotation_degrees', 'pin_color', 'pin_size', 'is_visible',
+            'artwork_title', 'artwork_artist', 'artwork_image'
+        ]
+        read_only_fields = ['id']
+
+
+class FloorMapDetailSerializer(serializers.ModelSerializer):
+    """Detailed floor map with all artwork positions"""
+    
+    artworks = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = FloorMap
+        fields = [
+            'id', 'museum', 'floor_level', 'floor_name', 'floor_plan_image',
+            'image_width', 'image_height', 'real_width_meters', 'real_height_meters',
+            'description', 'is_active', 'artworks'
+        ]
+    
+    def get_artworks(self, obj):
+        positions = obj.artwork_positions.filter(is_visible=True).select_related('artwork', 'artwork__artist')
+        return [{
+            'id': str(pos.artwork.id),
+            'title': pos.artwork.title,
+            'artist': pos.artwork.artist.name if pos.artwork.artist else None,
+            'image': pos.artwork.image.url if pos.artwork.image else None,
+            'description': pos.artwork.description,
+            'x_position': pos.x_position,
+            'y_position': pos.y_position,
+            'pin_color': pos.pin_color,
+            'pin_size': pos.pin_size,
+        } for pos in positions]

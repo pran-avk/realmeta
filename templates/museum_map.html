@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Museum Floor Map - ArtScope</title>
+    <link rel="stylesheet" href="/static/css/global.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-body);
+            background: var(--deep-charcoal);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .map-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar with floor selector */
+        .sidebar {
+            width: 300px;
+            background: rgba(29, 29, 29, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid var(--gold);
+            z-index: 100;
+        }
+
+        .sidebar h1 {
+            font-family: var(--font-heading);
+            font-size: 28px;
+            margin: 0 0 10px 0;
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .museum-name {
+            font-size: 14px;
+            color: var(--silver);
+            margin-bottom: 30px;
+        }
+
+        /* Floor selector */
+        .floor-selector {
+            margin-bottom: 30px;
+        }
+
+        .floor-selector h3 {
+            font-size: 16px;
+            color: var(--gold);
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .floor-button {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .floor-button:hover {
+            background: rgba(212, 175, 55, 0.2);
+            border-color: var(--gold);
+            transform: translateX(5px);
+        }
+
+        .floor-button.active {
+            background: var(--gold-gradient);
+            border-color: var(--gold);
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .floor-button .floor-name {
+            font-weight: 600;
+            display: block;
+        }
+
+        .floor-button .artwork-count {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 5px;
+            display: block;
+        }
+
+        /* Artwork list */
+        .artwork-list {
+            margin-top: 30px;
+        }
+
+        .artwork-list h3 {
+            font-size: 16px;
+            color: var(--gold);
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .artwork-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .artwork-item:hover {
+            background: rgba(212, 175, 55, 0.1);
+            border-left-color: var(--gold);
+            transform: translateX(5px);
+        }
+
+        .artwork-item.selected {
+            background: rgba(212, 175, 55, 0.2);
+            border-left-color: var(--gold);
+        }
+
+        .artwork-item .title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .artwork-item .artist {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Map viewer */
+        .map-viewer {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #0a0a0a;
+        }
+
+        .map-canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        .map-canvas-container.grabbing {
+            cursor: grabbing;
+        }
+
+        .map-canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: center;
+            transition: transform 0.3s ease;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .floor-plan-image {
+            max-width: none;
+            height: auto;
+            display: block;
+        }
+
+        /* Artwork pins on map */
+        .artwork-pin {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .artwork-pin:hover {
+            transform: translate(-50%, -100%) scale(1.2);
+            z-index: 20;
+        }
+
+        .artwork-pin.selected {
+            z-index: 25;
+            animation: pulse 1.5s infinite;
+        }
+
+        .pin-marker {
+            width: 30px;
+            height: 40px;
+            position: relative;
+        }
+
+        .pin-marker svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+        }
+
+        .pin-label {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 6px 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid var(--gold);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .artwork-pin:hover .pin-label {
+            opacity: 1;
+        }
+
+        /* Map controls */
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 50;
+        }
+
+        .control-button {
+            width: 50px;
+            height: 50px;
+            background: rgba(29, 29, 29, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 12px;
+            color: var(--gold);
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-button:hover {
+            background: var(--gold);
+            color: var(--deep-charcoal);
+            transform: scale(1.1);
+        }
+
+        /* Artwork details popup */
+        .artwork-popup {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 500px;
+            background: rgba(29, 29, 29, 0.98);
+            backdrop-filter: blur(20px);
+            border: 2px solid var(--gold);
+            border-radius: 16px;
+            padding: 25px;
+            z-index: 100;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+
+        .artwork-popup.show {
+            display: block;
+            animation: slideUp 0.5s ease;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .popup-close:hover {
+            background: var(--gold);
+            color: var(--deep-charcoal);
+            transform: rotate(90deg);
+        }
+
+        .popup-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .popup-title {
+            font-family: var(--font-heading);
+            font-size: 24px;
+            margin-bottom: 8px;
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .popup-artist {
+            font-size: 16px;
+            color: var(--silver);
+            margin-bottom: 15px;
+        }
+
+        .popup-description {
+            font-size: 14px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .popup-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .popup-button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .popup-button.primary {
+            background: var(--gold-gradient);
+            color: var(--deep-charcoal);
+        }
+
+        .popup-button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .popup-button.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+
+        .popup-button.secondary:hover {
+            background: rgba(212, 175, 55, 0.2);
+            border-color: var(--gold);
+        }
+
+        /* Loading state */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(212, 175, 55, 0.2);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: 40vh;
+                border-right: none;
+                border-bottom: 1px solid var(--gold);
+            }
+
+            .map-container {
+                flex-direction: column;
+            }
+
+            .map-viewer {
+                height: 60vh;
+            }
+
+            .artwork-popup {
+                max-width: 90%;
+                bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="map-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h1>🗺️ Museum Map</h1>
+            <div class="museum-name" id="museumName">Loading...</div>
+
+            <!-- Floor Selector -->
+            <div class="floor-selector">
+                <h3>Select Floor</h3>
+                <div id="floorButtons">
+                    <!-- Floor buttons will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Artwork List for Current Floor -->
+            <div class="artwork-list">
+                <h3>Artworks on This Floor</h3>
+                <div id="artworkList">
+                    <!-- Artwork items will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Viewer -->
+        <div class="map-viewer">
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 20px; color: var(--gold);">Loading floor map...</p>
+            </div>
+
+            <div class="map-canvas-container" id="mapContainer">
+                <div class="map-canvas" id="mapCanvas">
+                    <img id="floorPlanImage" class="floor-plan-image" src="" alt="Floor Plan">
+                    <!-- Artwork pins will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Map Controls -->
+            <div class="map-controls">
+                <button class="control-button" id="zoomIn" title="Zoom In">+</button>
+                <button class="control-button" id="zoomOut" title="Zoom Out">−</button>
+                <button class="control-button" id="resetView" title="Reset View">⟲</button>
+            </div>
+
+            <!-- Artwork Details Popup -->
+            <div class="artwork-popup" id="artworkPopup">
+                <button class="popup-close" id="closePopup">×</button>
+                <img class="popup-image" id="popupImage" src="" alt="Artwork">
+                <div class="popup-title" id="popupTitle"></div>
+                <div class="popup-artist" id="popupArtist"></div>
+                <div class="popup-description" id="popupDescription"></div>
+                <div class="popup-actions">
+                    <button class="popup-button secondary" id="viewDetails">View Details</button>
+                    <button class="popup-button primary" id="navigateToArtwork">🧭 Navigate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let currentFloor = null;
+        let currentArtwork = null;
+        let zoom = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX, startY;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMuseumData();
+            setupMapControls();
+            setupDragAndZoom();
+        });
+
+        // Load museum and floor data
+        async function loadMuseumData() {
+            try {
+                // Get museum ID from URL or use first museum
+                const museumId = new URLSearchParams(window.location.search).get('museum');
+                
+                // Fetch floors for museum
+                const response = await fetch(`/api/museums/${museumId || ''}/floors/`);
+                const data = await response.json();
+                
+                if (data.floors && data.floors.length > 0) {
+                    document.getElementById('museumName').textContent = data.museum_name;
+                    renderFloorButtons(data.floors);
+                    selectFloor(data.floors[0]);
+                } else {
+                    document.getElementById('loading').innerHTML = '<p style="color: var(--gold);">No floor maps available. Upload floor plans in the dashboard.</p>';
+                }
+            } catch (error) {
+                console.error('Failed to load museum data:', error);
+                document.getElementById('loading').innerHTML = '<p style="color: red;">Failed to load floor map. Please try again.</p>';
+            }
+        }
+
+        // Render floor selector buttons
+        function renderFloorButtons(floors) {
+            const container = document.getElementById('floorButtons');
+            container.innerHTML = floors.map(floor => `
+                <button class="floor-button" data-floor-id="${floor.id}" onclick="selectFloorById('${floor.id}')">
+                    <span class="floor-name">${floor.floor_name}</span>
+                    <span class="artwork-count">${floor.artwork_count} artworks</span>
+                </button>
+            `).join('');
+        }
+
+        // Select floor
+        async function selectFloorById(floorId) {
+            const response = await fetch(`/api/floor-maps/${floorId}/`);
+            const floor = await response.json();
+            selectFloor(floor);
+        }
+
+        function selectFloor(floor) {
+            currentFloor = floor;
+            
+            // Update active button
+            document.querySelectorAll('.floor-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.floorId === floor.id);
+            });
+
+            // Load floor plan image
+            const img = document.getElementById('floorPlanImage');
+            img.src = floor.floor_plan_image;
+            img.onload = () => {
+                document.getElementById('loading').style.display = 'none';
+                renderArtworkPins(floor.artworks);
+                resetView();
+            };
+
+            // Render artwork list
+            renderArtworkList(floor.artworks);
+        }
+
+        // Render artwork pins on map
+        function renderArtworkPins(artworks) {
+            const canvas = document.getElementById('mapCanvas');
+            
+            // Remove existing pins
+            canvas.querySelectorAll('.artwork-pin').forEach(pin => pin.remove());
+
+            // Add new pins
+            artworks.forEach(artwork => {
+                const pin = document.createElement('div');
+                pin.className = 'artwork-pin';
+                pin.dataset.artworkId = artwork.id;
+                pin.style.left = `${artwork.x_position}px`;
+                pin.style.top = `${artwork.y_position}px`;
+                
+                pin.innerHTML = `
+                    <div class="pin-marker">
+                        <svg viewBox="0 0 24 36" fill="${artwork.pin_color || '#D4AF37'}">
+                            <path d="M12 0C5.4 0 0 5.4 0 12c0 7.2 12 24 12 24s12-16.8 12-24c0-6.6-5.4-12-12-12zm0 16c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z"/>
+                        </svg>
+                    </div>
+                    <div class="pin-label">${artwork.title}</div>
+                `;
+                
+                pin.addEventListener('click', () => showArtworkPopup(artwork));
+                canvas.appendChild(pin);
+            });
+        }
+
+        // Render artwork list in sidebar
+        function renderArtworkList(artworks) {
+            const container = document.getElementById('artworkList');
+            container.innerHTML = artworks.map(artwork => `
+                <div class="artwork-item" data-artwork-id="${artwork.id}" onclick="highlightArtwork('${artwork.id}')">
+                    <div class="title">${artwork.title}</div>
+                    <div class="artist">${artwork.artist || 'Unknown Artist'}</div>
+                </div>
+            `).join('');
+        }
+
+        // Highlight artwork on map
+        function highlightArtwork(artworkId) {
+            // Update sidebar selection
+            document.querySelectorAll('.artwork-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.artworkId === artworkId);
+            });
+
+            // Update pin selection
+            document.querySelectorAll('.artwork-pin').forEach(pin => {
+                pin.classList.toggle('selected', pin.dataset.artworkId === artworkId);
+            });
+
+            // Pan to artwork
+            const pin = document.querySelector(`.artwork-pin[data-artwork-id="${artworkId}"]`);
+            if (pin) {
+                const rect = pin.getBoundingClientRect();
+                const containerRect = document.getElementById('mapContainer').getBoundingClientRect();
+                
+                // Calculate center offset
+                const offsetX = (containerRect.width / 2 - rect.left) / zoom;
+                const offsetY = (containerRect.height / 2 - rect.top) / zoom;
+                
+                translateX += offsetX;
+                translateY += offsetY;
+                updateTransform();
+            }
+        }
+
+        // Show artwork popup
+        function showArtworkPopup(artwork) {
+            currentArtwork = artwork;
+            
+            document.getElementById('popupImage').src = artwork.image || '/static/images/placeholder.jpg';
+            document.getElementById('popupTitle').textContent = artwork.title;
+            document.getElementById('popupArtist').textContent = artwork.artist || 'Unknown Artist';
+            document.getElementById('popupDescription').textContent = artwork.description || 'No description available.';
+            
+            document.getElementById('artworkPopup').classList.add('show');
+            
+            highlightArtwork(artwork.id);
+        }
+
+        // Close popup
+        document.getElementById('closePopup').addEventListener('click', () => {
+            document.getElementById('artworkPopup').classList.remove('show');
+        });
+
+        // Navigate to artwork
+        document.getElementById('navigateToArtwork').addEventListener('click', () => {
+            if (currentArtwork) {
+                window.location.href = `/navigate/?target=${currentArtwork.id}`;
+            }
+        });
+
+        // View details
+        document.getElementById('viewDetails').addEventListener('click', () => {
+            if (currentArtwork) {
+                window.location.href = `/artwork-details/?id=${currentArtwork.id}`;
+            }
+        });
+
+        // Map controls
+        function setupMapControls() {
+            document.getElementById('zoomIn').addEventListener('click', () => {
+                zoom = Math.min(zoom * 1.2, 5);
+                updateTransform();
+            });
+
+            document.getElementById('zoomOut').addEventListener('click', () => {
+                zoom = Math.max(zoom / 1.2, 0.5);
+                updateTransform();
+            });
+
+            document.getElementById('resetView').addEventListener('click', resetView);
+        }
+
+        function resetView() {
+            zoom = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+        }
+
+        function updateTransform() {
+            const canvas = document.getElementById('mapCanvas');
+            canvas.style.transform = `translate(-50%, -50%) translate(${translateX}px, ${translateY}px) scale(${zoom})`;
+        }
+
+        // Drag and zoom functionality
+        function setupDragAndZoom() {
+            const container = document.getElementById('mapContainer');
+
+            // Mouse drag
+            container.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.artwork-pin')) return;
+                isDragging = true;
+                startX = e.clientX - translateX * zoom;
+                startY = e.clientY - translateY * zoom;
+                container.classList.add('grabbing');
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                translateX = (e.clientX - startX) / zoom;
+                translateY = (e.clientY - startY) / zoom;
+                updateTransform();
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                container.classList.remove('grabbing');
+            });
+
+            // Mouse wheel zoom
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                zoom = Math.max(0.5, Math.min(5, zoom * delta));
+                updateTransform();
+            });
+
+            // Touch support
+            let touchStartDist = 0;
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    touchStartDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                } else if (e.touches.length === 1) {
+                    startX = e.touches[0].clientX - translateX * zoom;
+                    startY = e.touches[0].clientY - translateY * zoom;
+                }
+            });
+
+            container.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    const dist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    zoom = Math.max(0.5, Math.min(5, zoom * (dist / touchStartDist)));
+                    touchStartDist = dist;
+                    updateTransform();
+                } else if (e.touches.length === 1) {
+                    translateX = (e.touches[0].clientX - startX) / zoom;
+                    translateY = (e.touches[0].clientY - startY) / zoom;
+                    updateTransform();
+                }
+            });
+        }
+    </script>
+</body>
+</html>

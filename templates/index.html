@@ -579,8 +579,14 @@
             </p>
 
             <div class="cta-group">
-                <button class="btn btn-primary" onclick="startScanning()">
-                    <span>Start Scanning</span>
+                <button class="btn btn-primary" onclick="startAIScanning()">
+                    <span>🤖 AI Scanner (3D View)</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
+                <button class="btn btn-primary" onclick="startScanning()" style="background: rgba(255,255,255,0.1);">
+                    <span>Classic Scanner</span>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
                     </svg>
@@ -709,8 +715,30 @@
     </footer>
 
     <script>
+        function startAIScanning() {
+            // Redirect to AI scanner with client-side matching
+            fetch('/api/sessions/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    analytics_consent: true
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                sessionStorage.setItem('artscope_session_id', data.id);
+                window.location.href = '/scanner-ai/';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.location.href = '/scanner-ai/';
+            });
+        }
+
         function startScanning() {
-            // Create session and redirect to scanner
+            // Create session and redirect to classic scanner
             fetch('/api/sessions/', {
                 method: 'POST',
                 headers: {

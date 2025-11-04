@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArtScope - AI Scanner with 3D View</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: white;
+            overflow: hidden;
+        }
+
+        #scanner-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .top-bar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        .scan-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            border: 3px solid rgba(255, 215, 0, 0.8);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        .corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #FFD700;
+        }
+
+        .corner.tl { top: -3px; left: -3px; border-right: none; border-bottom: none; }
+        .corner.tr { top: -3px; right: -3px; border-left: none; border-bottom: none; }
+        .corner.bl { bottom: -3px; left: -3px; border-right: none; border-top: none; }
+        .corner.br { bottom: -3px; right: -3px; border-left: none; border-top: none; }
+
+        .scan-btn-container {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .scan-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 4px solid white;
+            background: rgba(255, 215, 0, 0.9);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #000;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+        }
+
+        .scan-btn:active {
+            transform: scale(0.95);
+        }
+
+        .scan-btn.scanning {
+            animation: scanning 1s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes scanning {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .status-message {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 15px 30px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            display: none;
+        }
+
+        .status-message.show {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        /* 3D Canvas Container */
+        #result-3d-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 100;
+            display: none;
+        }
+
+        #result-3d-container.show {
+            display: block;
+        }
+
+        #canvas-3d {
+            width: 100%;
+            height: 100%;
+        }
+
+        .close-3d-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 15px 30px;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            z-index: 101;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .artwork-info-3d {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 20px 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            z-index: 101;
+            max-width: 80%;
+            text-align: center;
+        }
+
+        .similarity-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: #FFD700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .location-btn {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 215, 0, 0.9);
+            border: 2px solid white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            color: #000;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 10;
+            pointer-events: auto;
+            display: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+
+        .location-btn.show {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div id="scanner-container">
+        <video id="camera-feed" autoplay playsinline></video>
+        <canvas id="capture-canvas"></canvas>
+
+        <div class="scanner-overlay">
+            <div class="top-bar">
+                <div class="top-bar-content">
+                    <button class="back-btn" onclick="goBack()">← Back</button>
+                    <div style="font-size: 18px; font-weight: bold;">🎨 AI Scanner</div>
+                </div>
+            </div>
+
+            <button class="location-btn" id="location-btn" onclick="getUserLocationAndFetchArtworks()">
+                📍 Enable Location
+            </button>
+
+            <div class="scan-frame">
+                <div class="corner tl"></div>
+                <div class="corner tr"></div>
+                <div class="corner bl"></div>
+                <div class="corner br"></div>
+            </div>
+
+            <div class="status-message" id="status-message">
+                Loading location data...
+            </div>
+
+            <div class="scan-btn-container">
+                <button class="scan-btn" id="scan-btn" onclick="captureAndMatch()">
+                    SCAN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D Result View -->
+    <div id="result-3d-container">
+        <button class="close-3d-btn" onclick="close3DView()">✕ Close</button>
+        <canvas id="canvas-3d"></canvas>
+        <div class="artwork-info-3d" id="artwork-info-3d"></div>
+    </div>
+
+    <!-- Three.js for 3D rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        let stream = null;
+        let locationArtworks = [];
+        let userPosition = null;
+        let scene, camera, renderer, textMesh;
+        const sessionId = sessionStorage.getItem('artscope_session_id');
+
+        // Initialize camera
+        async function initCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: 1920, height: 1080 }
+                });
+                const video = document.getElementById('camera-feed');
+                video.srcObject = stream;
+                
+                // Get user location and fetch artworks
+                getUserLocationAndFetchArtworks();
+            } catch (error) {
+                console.error('Camera error:', error);
+                showStatus('Camera access denied', 'error');
+            }
+        }
+
+        // Get GPS location and fetch nearby artworks
+        async function getUserLocationAndFetchArtworks() {
+            showStatus('📍 Requesting location permission...');
+            
+            if (!('geolocation' in navigator)) {
+                showStatus('❌ Geolocation not supported on this device', 'error');
+                return;
+            }
+            
+            // Request location with high accuracy
+            navigator.geolocation.getCurrentPosition(
+                // Success callback
+                async (position) => {
+                    userPosition = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+                    
+                    console.log('📍 Location obtained:', userPosition);
+                    showStatus(`🔍 Location: ${userPosition.latitude.toFixed(4)}, ${userPosition.longitude.toFixed(4)}`);
+                    
+                    setTimeout(() => {
+                        showStatus('🔍 Loading nearby artworks...');
+                    }, 1000);
+                    
+                    try {
+                        const response = await fetch('/api/scan/location-artworks/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(userPosition)
+                        });
+                        
+                        const data = await response.json();
+                        console.log('Artworks response:', data);
+                        
+                        if (data.success && data.artworks.length > 0) {
+                            locationArtworks = data.artworks;
+                            showStatus(`✅ ${data.count} artworks found nearby!`, 'success');
+                            setTimeout(() => hideStatus(), 2000);
+                        } else {
+                            showStatus('⚠️ No artworks in range. Move closer to museum!', 'warning');
+                            // Keep showing the message
+                        }
+                    } catch (error) {
+                        console.error('Failed to fetch artworks:', error);
+                        showStatus('❌ Failed to load artworks: ' + error.message, 'error');
+                    }
+                }, 
+                // Error callback
+                (error) => {
+                    console.error('Geolocation error:', error);
+                    let errorMsg = '';
+                    
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = '❌ Location permission denied. Click button to retry.';
+                            document.getElementById('location-btn').classList.add('show');
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = '❌ Location information unavailable. Check GPS settings.';
+                            document.getElementById('location-btn').classList.add('show');
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = '❌ Location request timeout. Trying again...';
+                            // Retry after timeout
+                            setTimeout(getUserLocationAndFetchArtworks, 2000);
+                            return;
+                        default:
+                            errorMsg = '❌ Unknown location error: ' + error.message;
+                            document.getElementById('location-btn').classList.add('show');
+                    }
+                    
+                    showStatus(errorMsg, 'error');
+                    
+                    // Show instructions
+                    setTimeout(() => {
+                        alert('📍 Location Access Required:\n\n' +
+                              '1. Click the location icon (🔒) in your browser address bar\n' +
+                              '2. Select "Allow" for location access\n' +
+                              '3. Click the "📍 Enable Location" button below\n\n' +
+                              'We need your location to find artworks near you!');
+                    }, 1000);
+                },
+                // Options
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // Capture image and match with artworks
+        async function captureAndMatch() {
+            if (locationArtworks.length === 0) {
+                showStatus('⚠️ No artworks available. Check your location!', 'warning');
+                return;
+            }
+
+            const video = document.getElementById('camera-feed');
+            const canvas = document.getElementById('capture-canvas');
+            const ctx = canvas.getContext('2d');
+            const scanBtn = document.getElementById('scan-btn');
+
+            // Set canvas size
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw video frame
+            ctx.drawImage(video, 0, 0);
+
+            // Show scanning status
+            scanBtn.classList.add('scanning');
+            scanBtn.textContent = 'SCANNING';
+            showStatus('🔍 Analyzing image...');
+
+            // Get image data for comparison
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const scannedHash = computePerceptualHash(imageData);
+
+            // Compare with all location artworks
+            let bestMatch = null;
+            let maxSimilarity = 0;
+
+            for (const artwork of locationArtworks) {
+                const similarity = await compareWithArtwork(canvas, artwork);
+                
+                if (similarity > maxSimilarity) {
+                    maxSimilarity = similarity;
+                    bestMatch = artwork;
+                }
+            }
+
+            // Reset button
+            scanBtn.classList.remove('scanning');
+            scanBtn.textContent = 'SCAN';
+
+            // Show result if good match found
+            if (bestMatch && maxSimilarity > 0.30) {
+                showStatus(`✅ Match found! ${(maxSimilarity * 100).toFixed(0)}% similar`, 'success');
+                setTimeout(() => {
+                    display3DResult(bestMatch, maxSimilarity);
+                }, 1000);
+            } else {
+                showStatus('❌ No match found. Try different angle!', 'error');
+            }
+        }
+
+        // Simple perceptual hash (difference hash)
+        function computePerceptualHash(imageData) {
+            const size = 8;
+            const canvas = document.createElement('canvas');
+            canvas.width = size + 1;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Resize to small size
+            ctx.drawImage(
+                document.getElementById('capture-canvas'),
+                0, 0, size + 1, size
+            );
+            
+            const data = ctx.getImageData(0, 0, size + 1, size).data;
+            const hash = [];
+            
+            // Compare adjacent pixels
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const idx1 = (y * (size + 1) + x) * 4;
+                    const idx2 = (y * (size + 1) + x + 1) * 4;
+                    const gray1 = data[idx1] * 0.299 + data[idx1 + 1] * 0.587 + data[idx1 + 2] * 0.114;
+                    const gray2 = data[idx2] * 0.299 + data[idx2 + 1] * 0.587 + data[idx2 + 2] * 0.114;
+                    hash.push(gray1 < gray2 ? 1 : 0);
+                }
+            }
+            
+            return hash;
+        }
+
+        // Compare scanned image with artwork
+        async function compareWithArtwork(canvas, artwork) {
+            return new Promise((resolve) => {
+                // Load artwork image
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    // Create temp canvas for artwork
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = canvas.width;
+                    tempCanvas.height = canvas.height;
+                    tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                    
+                    // Get image data
+                    const scannedData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+                    const artworkData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    
+                    // Compute similarity using histogram comparison
+                    const similarity = computeHistogramSimilarity(scannedData, artworkData);
+                    resolve(similarity);
+                };
+                
+                img.onerror = () => {
+                    console.error('Failed to load artwork image:', artwork.title);
+                    resolve(0);
+                };
+                
+                img.src = artwork.image;
+            });
+        }
+
+        // Compute histogram similarity
+        function computeHistogramSimilarity(data1, data2) {
+            const hist1 = computeHistogram(data1);
+            const hist2 = computeHistogram(data2);
+            
+            // Compute correlation
+            let correlation = 0;
+            for (let i = 0; i < hist1.length; i++) {
+                correlation += Math.min(hist1[i], hist2[i]);
+            }
+            
+            return correlation;
+        }
+
+        // Compute color histogram
+        function computeHistogram(imageData) {
+            const bins = 64; // 64 bins per channel
+            const hist = new Array(bins * 3).fill(0);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = Math.floor(data[i] / 256 * bins);
+                const g = Math.floor(data[i + 1] / 256 * bins);
+                const b = Math.floor(data[i + 2] / 256 * bins);
+                
+                hist[r]++;
+                hist[bins + g]++;
+                hist[bins * 2 + b]++;
+            }
+            
+            // Normalize
+            const total = imageData.width * imageData.height;
+            return hist.map(v => v / total);
+        }
+
+        // Display result in 3D
+        function display3DResult(artwork, similarity) {
+            // Show 3D container
+            document.getElementById('result-3d-container').classList.add('show');
+            
+            // Stop camera
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Initialize Three.js scene
+            init3DScene(artwork, similarity);
+            
+            // Display artwork info
+            const infoDiv = document.getElementById('artwork-info-3d');
+            infoDiv.innerHTML = `
+                <div class="similarity-badge">${(similarity * 100).toFixed(0)}% Match</div>
+                <h2>${artwork.title}</h2>
+                <p style="opacity: 0.8; margin-top: 10px;">
+                    by ${artwork.artist_name || 'Unknown Artist'}
+                </p>
+            `;
+        }
+
+        // Initialize 3D scene with Three.js
+        function init3DScene(artwork, similarity) {
+            const container = document.getElementById('canvas-3d');
+            
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.z = 5;
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: container,
+                antialias: true 
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            const pointLight = new THREE.PointLight(0xFFD700, 1, 100);
+            pointLight.position.set(5, 5, 5);
+            scene.add(pointLight);
+            
+            // Create 3D text using sprites (simple approach)
+            create3DTextDisplay(artwork);
+            
+            // Animate
+            animate3D();
+        }
+
+        // Create 3D text display using canvas texture
+        function create3DTextDisplay(artwork) {
+            // Create canvas for text
+            const textCanvas = document.createElement('canvas');
+            textCanvas.width = 1024;
+            textCanvas.height = 512;
+            const ctx = textCanvas.getContext('2d');
+            
+            // Draw background
+            const gradient = ctx.createLinearGradient(0, 0, textCanvas.width, textCanvas.height);
+            gradient.addColorStop(0, 'rgba(255, 215, 0, 0.1)');
+            gradient.addColorStop(1, 'rgba(255, 165, 0, 0.1)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, textCanvas.width, textCanvas.height);
+            
+            // Draw text
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 60px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(artwork.title, textCanvas.width / 2, 50);
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '32px Arial';
+            ctx.fillText(`by ${artwork.artist_name || 'Unknown'}`, textCanvas.width / 2, 130);
+            
+            // Wrap description
+            ctx.font = '24px Arial';
+            const description = artwork.description || 'No description available';
+            const words = description.split(' ');
+            let line = '';
+            let y = 200;
+            
+            for (let word of words.slice(0, 30)) { // Limit words
+                const testLine = line + word + ' ';
+                const metrics = ctx.measureText(testLine);
+                
+                if (metrics.width > textCanvas.width - 100 && line !== '') {
+                    ctx.fillText(line, textCanvas.width / 2, y);
+                    line = word + ' ';
+                    y += 35;
+                    if (y > 450) break;
+                } else {
+                    line = testLine;
+                }
+            }
+            ctx.fillText(line, textCanvas.width / 2, y);
+            
+            // Create texture from canvas
+            const texture = new THREE.CanvasTexture(textCanvas);
+            
+            // Create plane with text texture
+            const geometry = new THREE.PlaneGeometry(8, 4);
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            textMesh = new THREE.Mesh(geometry, material);
+            scene.add(textMesh);
+        }
+
+        // Animate 3D scene
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            // Rotate text slowly
+            if (textMesh) {
+                textMesh.rotation.y += 0.005;
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        // Close 3D view
+        function close3DView() {
+            document.getElementById('result-3d-container').classList.remove('show');
+            
+            // Restart camera
+            initCamera();
+        }
+
+        // Show status message
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.textContent = message;
+            statusDiv.classList.add('show');
+        }
+
+        // Hide status message
+        function hideStatus() {
+            document.getElementById('status-message').classList.remove('show');
+        }
+
+        // Go back
+        function goBack() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            window.location.href = '/';
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+
+        // Initialize on load
+        window.addEventListener('load', initCamera);
+
+        // Cleanup on unload
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>
