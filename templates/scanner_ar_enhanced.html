@@ -389,8 +389,10 @@
         let isLocked = false;
         let autoScanInterval = null;
         let currentMatch = null;
-        let currentSimilarity = 0;
-        let scanResults = {}; // Store all scan results
+    let currentSimilarity = 0;
+    let scanResults = {}; // Store all scan results
+    const artworkCache = new Map(); // id -> { data: Uint8ClampedArray, width, height, hashBits }
+    let cacheReady = false;
 
         // Initialize camera
         async function initCamera() {
@@ -447,14 +449,20 @@
                         
                         if (data.success && data.artworks.length > 0) {
                             locationArtworks = data.artworks;
-                            showStatus(`✅ ${data.count} artworks loaded! Auto-scanning active!`, 'success');
-                            setTimeout(() => hideStatus(), 2000);
+                            showStatus(`✅ ${data.count} artworks loaded! Preparing cache...`, 'success');
                             
-                            // Start auto-scanning immediately
-                            setTimeout(() => {
+                            // Preload and cache all artwork images before auto-scanning
+                            preloadArtworks(locationArtworks).then(() => {
+                                cacheReady = true;
+                                showStatus('✅ Artworks cached. Auto-scanning active!', 'success');
+                                setTimeout(() => hideStatus(), 1500);
                                 startAutoScan();
-                                console.log('🔍 Auto-scanning started!');
-                            }, 500);
+                                console.log('🔍 Auto-scanning started (cache ready)!');
+                            }).catch(err => {
+                                console.error('Cache preload error:', err);
+                                showStatus('⚠️ Cache preload issue, scanning anyway...', 'warning');
+                                startAutoScan();
+                            });
                         } else {
                             showStatus('⚠️ No artworks nearby. Move closer!', 'warning');
                         }
@@ -529,6 +537,10 @@
         // Capture and match
         async function captureAndMatch() {
             if (locationArtworks.length === 0 || isLocked) return;
+            if (!cacheReady) {
+                showStatus('⏳ Caching images for fast scanning...');
+                return;
+            }
 
             const video = document.getElementById('camera-feed');
             const canvas = document.getElementById('capture-canvas');
@@ -538,21 +550,25 @@
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
 
-            console.log('🎯 Scanning ALL artworks first...');
+            console.log('🎯 Scanning ALL artworks (cached) ...');
 
-            // STEP 1: Scan ALL artworks and collect results
-            let scanPromises = [];
+            // Downscale scanned frame to 100x100 once and compute aHash
+            const compareSize = 100;
+            const scannedCanvas = document.createElement('canvas');
+            scannedCanvas.width = compareSize;
+            scannedCanvas.height = compareSize;
+            const scannedCtx = scannedCanvas.getContext('2d');
+            scannedCtx.drawImage(canvas, 0, 0, compareSize, compareSize);
+            const scannedImageData = scannedCtx.getImageData(0, 0, compareSize, compareSize);
+            const scannedData = scannedImageData.data;
+            const scannedHash = computeAHashBits(scannedData, compareSize, compareSize);
+
+            // STEP 1: Compute similarity against ALL cached artworks
+            let allResults = [];
             for (const artwork of locationArtworks) {
-                scanPromises.push(
-                    compareWithArtwork(canvas, artwork).then(similarity => ({
-                        artwork: artwork,
-                        similarity: similarity
-                    }))
-                );
+                const resultSim = compareWithArtworkCached(scannedData, scannedHash, artwork);
+                allResults.push({ artwork, similarity: resultSim });
             }
-
-            // STEP 2: Wait for ALL scans to complete
-            let allResults = await Promise.all(scanPromises);
             
             // STEP 3: Store results in local storage
             allResults.forEach(result => {
@@ -580,8 +596,11 @@
             console.log(`🏆 BEST MATCH (after comparing all): ${bestMatch.title} at ${(maxSimilarity * 100).toFixed(1)}%`);
             console.log('💾 Results stored locally:', scanResults);
 
-            // STEP 6: Show ONLY if best match meets threshold
-            if (maxSimilarity > 0.20) {
+            // STEP 6: Show ONLY if best match meets threshold and beats second place by small margin
+            const second = allResults[1] ? allResults[1].similarity : 0;
+            const delta = maxSimilarity - second;
+            
+            if (maxSimilarity > 0.20 && (delta > 0.03 || !currentMatch || currentMatch.id !== bestMatch.id)) {
                 console.log('✅ Showing ONLY the highest match');
                 currentMatch = bestMatch;
                 currentSimilarity = maxSimilarity;
@@ -592,54 +611,83 @@
             }
         }
 
-        // Compare with artwork (simple pixel comparison)
-        async function compareWithArtwork(canvas, artwork) {
-            return new Promise((resolve) => {
+        // Compare with artwork using cached data (pixel + aHash combo)
+        function compareWithArtworkCached(scannedData, scannedHashBits, artwork) {
+            const cached = artworkCache.get(artwork.id);
+            if (!cached || !cached.data || !cached.hashBits) return 0;
+            
+            // Pixel similarity with tolerance
+            const threshold = 20; // stricter tolerance for better discrimination
+            let matchingPixels = 0;
+            const totalPixels = cached.width * cached.height; // 100*100
+            const cachedData = cached.data;
+            
+            for (let i = 0; i < cachedData.length; i += 4) {
+                const rDiff = Math.abs(scannedData[i] - cachedData[i]);
+                const gDiff = Math.abs(scannedData[i + 1] - cachedData[i + 1]);
+                const bDiff = Math.abs(scannedData[i + 2] - cachedData[i + 2]);
+                if (rDiff < threshold && gDiff < threshold && bDiff < threshold) matchingPixels++;
+            }
+            const pixelSim = matchingPixels / totalPixels;
+            
+            // Hash similarity
+            const hDist = hammingDistance(scannedHashBits, cached.hashBits);
+            const hashSim = 1 - (hDist / scannedHashBits.length);
+            
+            // Weighted combo
+            return 0.6 * pixelSim + 0.4 * hashSim;
+        }
+
+        // Preload and cache all artworks (downscaled data + aHash)
+        function preloadArtworks(artworks) {
+            const compareSize = 100;
+            const promises = artworks.map(artwork => new Promise((resolve, reject) => {
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
-                
                 img.onload = () => {
-                    const compareSize = 100;
-                    
-                    const scannedCanvas = document.createElement('canvas');
-                    scannedCanvas.width = compareSize;
-                    scannedCanvas.height = compareSize;
-                    const scannedCtx = scannedCanvas.getContext('2d');
-                    scannedCtx.drawImage(canvas, 0, 0, compareSize, compareSize);
-                    const scannedData = scannedCtx.getImageData(0, 0, compareSize, compareSize).data;
-                    
-                    const artworkCanvas = document.createElement('canvas');
-                    artworkCanvas.width = compareSize;
-                    artworkCanvas.height = compareSize;
-                    const artworkCtx = artworkCanvas.getContext('2d');
-                    artworkCtx.drawImage(img, 0, 0, compareSize, compareSize);
-                    const artworkData = artworkCtx.getImageData(0, 0, compareSize, compareSize).data;
-                    
-                    let matchingPixels = 0;
-                    let totalPixels = compareSize * compareSize;
-                    const threshold = 50; // Increased tolerance to 50 RGB units
-                    
-                    for (let i = 0; i < scannedData.length; i += 4) {
-                        const rDiff = Math.abs(scannedData[i] - artworkData[i]);
-                        const gDiff = Math.abs(scannedData[i + 1] - artworkData[i + 1]);
-                        const bDiff = Math.abs(scannedData[i + 2] - artworkData[i + 2]);
-                        
-                        if (rDiff < threshold && gDiff < threshold && bDiff < threshold) {
-                            matchingPixels++;
-                        }
+                    try {
+                        const c = document.createElement('canvas');
+                        c.width = compareSize; c.height = compareSize;
+                        const cctx = c.getContext('2d');
+                        cctx.drawImage(img, 0, 0, compareSize, compareSize);
+                        const { data } = cctx.getImageData(0, 0, compareSize, compareSize);
+                        const hashBits = computeAHashBits(data, compareSize, compareSize);
+                        artworkCache.set(artwork.id, { data, width: compareSize, height: compareSize, hashBits, url: artwork.image });
+                        resolve();
+                    } catch (e) {
+                        console.error('Cache preprocess error for', artwork.title, e);
+                        resolve();
                     }
-                    
-                    const similarity = matchingPixels / totalPixels;
-                    resolve(similarity);
                 };
-                
-                img.onerror = () => {
-                    console.error('❌ Failed to load artwork image:', artwork.title);
-                    resolve(0);
-                };
-                
+                img.onerror = () => { console.warn('Cache load failed for', artwork.title); resolve(); };
                 img.src = artwork.image;
-            });
+            }));
+            return Promise.all(promises);
+        }
+
+        // Compute 8x8 average hash (aHash) bits from image data
+        function computeAHashBits(data, width, height, size = 8) {
+            // Sample to size x size grid
+            const samples = [];
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const sx = Math.floor((x + 0.5) * (width / size));
+                    const sy = Math.floor((y + 0.5) * (height / size));
+                    const idx = (sy * width + sx) * 4;
+                    const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                    samples.push(gray);
+                }
+            }
+            const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
+            return samples.map(v => (v >= avg ? 1 : 0));
+        }
+
+        function hammingDistance(a, b) {
+            if (!a || !b || a.length !== b.length) return Infinity;
+            let d = 0;
+            for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d++;
+            return d;
         }
 
         // Show AR view
