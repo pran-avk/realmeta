@@ -206,7 +206,7 @@
         .modal-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
         .modal-body { padding: 24px; overflow: auto; }
-        .badge { display: inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(255,215,0,0.15); border: 1px solid rgba(255,215,0,0.35); color: #FFD700; font-weight: 600; font-size: 12px; }
+    .badge { display: none; }
         .modal-title { font-size: 28px; font-weight: 800; margin-top: 12px; }
         .modal-artist { color: #ddd; margin-top: 6px; }
         .modal-desc { margin-top: 14px; line-height: 1.6; color: #eaeaea; }
@@ -394,7 +394,7 @@
             <img id="artwork-background" src="" alt="Artwork">
             <canvas id="canvas-3d"></canvas>
             <div class="artwork-info-overlay" id="artwork-info-overlay">
-                <div class="similarity-badge" id="similarity-badge"></div>
+                <div class="similarity-badge" id="similarity-badge" style="display:none;"></div>
                 <div class="artwork-title" id="artwork-title"></div>
                 <div class="artwork-artist" id="artwork-artist"></div>
             </div>
@@ -407,7 +407,7 @@
                     <img id="modal-artwork-image" src="" alt="Artwork" />
                 </div>
                 <div class="modal-body">
-                    <span class="badge" id="modal-similarity"></span>
+                    <span class="badge" id="modal-similarity" style="display:none;"></span>
                     <div class="modal-title" id="modal-title"></div>
                     <div class="modal-artist" id="modal-artist"></div>
                     <div class="modal-desc" id="modal-desc"></div>
@@ -583,11 +583,12 @@
             const scannedImageData = scannedCtx.getImageData(0, 0, compareSize, compareSize);
             const scannedData = scannedImageData.data;
             const scannedHash = computeAHashBits(scannedData, compareSize, compareSize);
+            const scannedColorHist = computeHSVHistogram(scannedData, compareSize, compareSize);
 
             // STEP 1: Compute similarity against ALL cached artworks
             let allResults = [];
             for (const artwork of locationArtworks) {
-                const resultSim = compareWithArtworkCached(scannedData, scannedHash, artwork);
+                const resultSim = compareWithArtworkCached(scannedData, scannedHash, scannedColorHist, artwork);
                 allResults.push({ artwork, similarity: resultSim });
             }
             
@@ -621,13 +622,13 @@
             const second = allResults[1] ? allResults[1].similarity : 0;
             const delta = maxSimilarity - second;
             
-            if (maxSimilarity > 0.20 && (delta > 0.03 || !currentMatch || currentMatch.id !== bestMatch.id)) {
+            if (maxSimilarity >= 0.50 && (delta > 0.03 || !currentMatch || currentMatch.id !== bestMatch.id)) {
                 console.log('✅ Highest match confirmed. Showing popup modal...');
                 currentMatch = bestMatch;
                 currentSimilarity = maxSimilarity;
                 showArtworkModal(bestMatch, maxSimilarity);
             } else {
-                console.log('❌ Best match below 20% threshold - not showing anything');
+                console.log('❌ Best match below 50% threshold - not showing anything');
                 hideARView();
             }
         }
@@ -639,7 +640,9 @@
                 // Keep camera running behind the modal for seamless UX
                 const modal = document.getElementById('details-modal');
                 document.getElementById('modal-artwork-image').src = artwork.image;
-                document.getElementById('modal-similarity').textContent = `${(similarity * 100).toFixed(0)}% Match`;
+                // Do not show confidence percentage in modal
+                const modalSim = document.getElementById('modal-similarity');
+                if (modalSim) modalSim.style.display = 'none';
                 document.getElementById('modal-title').textContent = artwork.title;
                 document.getElementById('modal-artist').textContent = `by ${artwork.artist_name || 'Unknown'}`;
                 document.getElementById('modal-desc').textContent = artwork.description || 'No description available.';
@@ -731,9 +734,9 @@
         }
 
         // Compare with artwork using cached data (pixel + aHash combo)
-        function compareWithArtworkCached(scannedData, scannedHashBits, artwork) {
+        function compareWithArtworkCached(scannedData, scannedHashBits, scannedColorHist, artwork) {
             const cached = artworkCache.get(artwork.id);
-            if (!cached || !cached.data || !cached.hashBits) return 0;
+            if (!cached || !cached.data || !cached.hashBits || !cached.colorHist) return 0;
             
             // Pixel similarity with tolerance
             const threshold = 20; // stricter tolerance for better discrimination
@@ -753,8 +756,11 @@
             const hDist = hammingDistance(scannedHashBits, cached.hashBits);
             const hashSim = 1 - (hDist / scannedHashBits.length);
             
-            // Weighted combo
-            return 0.6 * pixelSim + 0.4 * hashSim;
+            // Color histogram similarity (HSV histogram intersection)
+            const colorSim = histogramIntersection(scannedColorHist, cached.colorHist);
+            
+            // Weighted combo: emphasize color as requested
+            return 0.5 * pixelSim + 0.3 * colorSim + 0.2 * hashSim;
         }
 
         // Preload and cache all artworks (downscaled data + aHash)
@@ -771,7 +777,8 @@
                         cctx.drawImage(img, 0, 0, compareSize, compareSize);
                         const { data } = cctx.getImageData(0, 0, compareSize, compareSize);
                         const hashBits = computeAHashBits(data, compareSize, compareSize);
-                        artworkCache.set(artwork.id, { data, width: compareSize, height: compareSize, hashBits, url: artwork.image });
+                        const colorHist = computeHSVHistogram(data, compareSize, compareSize);
+                        artworkCache.set(artwork.id, { data, width: compareSize, height: compareSize, hashBits, colorHist, url: artwork.image });
                         resolve();
                     } catch (e) {
                         console.error('Cache preprocess error for', artwork.title, e);
@@ -782,6 +789,48 @@
                 img.src = artwork.image;
             }));
             return Promise.all(promises);
+        }
+
+        // Compute coarse HSV histogram (H:8, S:3, V:3 → 72 bins), normalized
+        function computeHSVHistogram(data, width, height) {
+            const H_BINS = 8, S_BINS = 3, V_BINS = 3;
+            const hist = new Float32Array(H_BINS * S_BINS * V_BINS);
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i] / 255, g = data[i+1] / 255, b = data[i+2] / 255;
+                const { h, s, v } = rgbToHsv(r, g, b);
+                const hBin = Math.min(H_BINS - 1, Math.floor(h * H_BINS));
+                const sBin = Math.min(S_BINS - 1, Math.floor(s * S_BINS));
+                const vBin = Math.min(V_BINS - 1, Math.floor(v * V_BINS));
+                const idx = hBin * (S_BINS * V_BINS) + sBin * V_BINS + vBin;
+                hist[idx] += 1;
+            }
+            // Normalize
+            let sum = 0; for (let i = 0; i < hist.length; i++) sum += hist[i];
+            if (sum > 0) { for (let i = 0; i < hist.length; i++) hist[i] /= sum; }
+            return hist;
+        }
+
+        function rgbToHsv(r, g, b) {
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            const d = max - min;
+            let h = 0;
+            if (d !== 0) {
+                if (max === r) h = ((g - b) / d) % 6;
+                else if (max === g) h = (b - r) / d + 2;
+                else h = (r - g) / d + 4;
+                h /= 6;
+                if (h < 0) h += 1;
+            }
+            const s = max === 0 ? 0 : d / max;
+            const v = max;
+            return { h, s, v };
+        }
+
+        function histogramIntersection(a, b) {
+            if (!a || !b || a.length !== b.length) return 0;
+            let sum = 0;
+            for (let i = 0; i < a.length; i++) sum += Math.min(a[i], b[i]);
+            return sum; // already normalized [0,1]
         }
 
         // Compute 8x8 average hash (aHash) bits from image data
@@ -828,7 +877,9 @@
             document.getElementById('artwork-background').src = artwork.image;
             
             // Update info
-            document.getElementById('similarity-badge').textContent = `${(similarity * 100).toFixed(0)}% Match`;
+            // Hide confidence percentage per request
+            const simBadge = document.getElementById('similarity-badge');
+            if (simBadge) simBadge.style.display = 'none';
             document.getElementById('artwork-title').textContent = artwork.title;
             document.getElementById('artwork-artist').textContent = `by ${artwork.artist_name || 'Unknown'}`;
             

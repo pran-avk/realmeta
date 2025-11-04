@@ -9,8 +9,9 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 import json
+from django.utils import timezone
 from core.forms import MuseumRegistrationForm, StaffRegistrationForm, StaffLoginForm
-from core.models import Museum, MuseumStaff, Artwork, Artist
+from core.models import Museum, MuseumStaff, Artwork, Artist, ArtworkInteraction, VisitorSession
 
 
 def register_view(request):
@@ -84,12 +85,26 @@ def dashboard_view(request):
     """Dashboard for logged-in museum staff"""
     museum = request.user.museum
     artworks = museum.artworks.all()[:10]
+    # Calculate scans today for this museum
+    today = timezone.now().date()
+    scans_today = ArtworkInteraction.objects.filter(
+        session__museum=museum,
+        interaction_type='scan',
+        timestamp__date=today
+    ).count()
+    visitors_today = VisitorSession.objects.filter(
+        museum=museum,
+        session_start__date=today,
+        opted_out=False
+    ).count()
     
     context = {
         'museum': museum,
         'artworks': artworks,
         'total_artworks': museum.artworks.count(),
         'active_artworks': museum.artworks.filter(is_on_display=True).count(),
+        'scans_today': scans_today,
+        'visitors_today': visitors_today,
     }
     
     return render(request, 'dashboard.html', context)
