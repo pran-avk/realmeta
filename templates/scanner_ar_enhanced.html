@@ -436,6 +436,9 @@
     // Temporal confirmation to improve accuracy at lower thresholds
     let lastBestId = null;
     let stableCount = 0; // number of consecutive confirmations
+    // Debounce scan logging to avoid double-counts when modal is toggled quickly
+    const SCAN_LOG_DEBOUNCE_MS = 5000; // 5 seconds per artwork
+    const lastScanLogByArtwork = new Map(); // artworkId -> timestamp (ms)
 
         // Initialize camera
         async function initCamera() {
@@ -701,6 +704,14 @@
         }
 
         async function logScanInteraction(artworkId, similarity) {
+            // Per-artwork debounce to prevent rapid duplicate logs
+            const now = Date.now();
+            const last = lastScanLogByArtwork.get(artworkId) || 0;
+            if (now - last < SCAN_LOG_DEBOUNCE_MS) {
+                console.debug('Debounced scan log for artwork', artworkId);
+                return;
+            }
+            lastScanLogByArtwork.set(artworkId, now);
             const sid = await ensureSession();
             if (!sid) return; // silently skip if no session
             try {
