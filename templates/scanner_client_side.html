@@ -517,7 +517,7 @@
             return hash;
         }
 
-        // Compare scanned image with artwork
+        // Compare scanned image with artwork - SIMPLE DIRECT COMPARISON
         async function compareWithArtwork(canvas, artwork) {
             return new Promise((resolve) => {
                 // Load artwork image
@@ -525,19 +525,43 @@
                 img.crossOrigin = 'anonymous';
                 
                 img.onload = () => {
-                    // Create temp canvas for artwork
-                    const tempCanvas = document.createElement('canvas');
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCanvas.width = canvas.width;
-                    tempCanvas.height = canvas.height;
-                    tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                    // Use small size for faster comparison
+                    const compareSize = 100;
                     
-                    // Get image data
-                    const scannedData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-                    const artworkData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    // Resize scanned image
+                    const scannedCanvas = document.createElement('canvas');
+                    scannedCanvas.width = compareSize;
+                    scannedCanvas.height = compareSize;
+                    const scannedCtx = scannedCanvas.getContext('2d');
+                    scannedCtx.drawImage(canvas, 0, 0, compareSize, compareSize);
+                    const scannedData = scannedCtx.getImageData(0, 0, compareSize, compareSize).data;
                     
-                    // Compute similarity using histogram comparison
-                    const similarity = computeHistogramSimilarity(scannedData, artworkData);
+                    // Resize artwork image
+                    const artworkCanvas = document.createElement('canvas');
+                    artworkCanvas.width = compareSize;
+                    artworkCanvas.height = compareSize;
+                    const artworkCtx = artworkCanvas.getContext('2d');
+                    artworkCtx.drawImage(img, 0, 0, compareSize, compareSize);
+                    const artworkData = artworkCtx.getImageData(0, 0, compareSize, compareSize).data;
+                    
+                    // Simple pixel-by-pixel comparison
+                    let matchingPixels = 0;
+                    let totalPixels = compareSize * compareSize;
+                    const threshold = 30; // Allow 30 RGB difference per pixel
+                    
+                    for (let i = 0; i < scannedData.length; i += 4) {
+                        const rDiff = Math.abs(scannedData[i] - artworkData[i]);
+                        const gDiff = Math.abs(scannedData[i + 1] - artworkData[i + 1]);
+                        const bDiff = Math.abs(scannedData[i + 2] - artworkData[i + 2]);
+                        
+                        // If RGB difference is small, consider it a match
+                        if (rDiff < threshold && gDiff < threshold && bDiff < threshold) {
+                            matchingPixels++;
+                        }
+                    }
+                    
+                    const similarity = matchingPixels / totalPixels;
+                    console.log(`Comparing ${artwork.title}: ${(similarity * 100).toFixed(1)}% match`);
                     resolve(similarity);
                 };
                 
