@@ -537,12 +537,15 @@
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
 
+            console.log('🎯 Scanning... Canvas size:', canvas.width, 'x', canvas.height);
+
             // Compare with all artworks
             let bestMatch = null;
             let maxSimilarity = 0;
 
             for (const artwork of locationArtworks) {
                 const similarity = await compareWithArtwork(canvas, artwork);
+                console.log(`📊 ${artwork.title}: ${(similarity * 100).toFixed(1)}% match`);
                 
                 if (similarity > maxSimilarity) {
                     maxSimilarity = similarity;
@@ -550,12 +553,16 @@
                 }
             }
 
-            // Show result if good match
-            if (bestMatch && maxSimilarity > 0.30) {
+            console.log(`🏆 Best match: ${bestMatch ? bestMatch.title : 'None'} at ${(maxSimilarity * 100).toFixed(1)}%`);
+
+            // Show result if good match (lowered threshold to 20%)
+            if (bestMatch && maxSimilarity > 0.20) {
+                console.log('✅ Match found! Showing AR view...');
                 currentMatch = bestMatch;
                 currentSimilarity = maxSimilarity;
                 showARView(bestMatch, maxSimilarity);
             } else {
+                console.log('❌ No match found (threshold: 20%)');
                 // No match - hide AR view
                 hideARView();
             }
@@ -586,7 +593,7 @@
                     
                     let matchingPixels = 0;
                     let totalPixels = compareSize * compareSize;
-                    const threshold = 30;
+                    const threshold = 50; // Increased tolerance to 50 RGB units
                     
                     for (let i = 0; i < scannedData.length; i += 4) {
                         const rDiff = Math.abs(scannedData[i] - artworkData[i]);
@@ -599,16 +606,23 @@
                     }
                     
                     const similarity = matchingPixels / totalPixels;
+                    console.log(`  📷 ${artwork.title}: ${matchingPixels}/${totalPixels} pixels matched`);
                     resolve(similarity);
                 };
                 
-                img.onerror = () => resolve(0);
+                img.onerror = () => {
+                    console.error('❌ Failed to load artwork image:', artwork.title);
+                    resolve(0);
+                };
+                
                 img.src = artwork.image;
             });
         }
 
         // Show AR view
         function showARView(artwork, similarity) {
+            console.log('🎨 Showing AR view for:', artwork.title);
+            
             const arContainer = document.getElementById('ar-container');
             const cameraFeed = document.getElementById('camera-feed');
             const scanFrame = document.getElementById('scan-frame');
@@ -628,10 +642,14 @@
             document.getElementById('artwork-title').textContent = artwork.title;
             document.getElementById('artwork-artist').textContent = `by ${artwork.artist_name || 'Unknown'}`;
             
+            console.log('✅ AR overlay displayed');
+            
             // Initialize 3D scene
             if (!renderer) {
+                console.log('🎬 Initializing 3D scene...');
                 init3DScene(artwork);
             } else {
+                console.log('🔄 Updating 3D text...');
                 update3DText(artwork);
             }
         }
