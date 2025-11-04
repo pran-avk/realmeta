@@ -539,24 +539,27 @@
 
             console.log('🎯 Scanning... Canvas size:', canvas.width, 'x', canvas.height);
 
-            // Compare with all artworks
-            let bestMatch = null;
-            let maxSimilarity = 0;
-
+            // Compare with ALL artworks FIRST - collect all results
+            let allResults = [];
+            
             for (const artwork of locationArtworks) {
                 const similarity = await compareWithArtwork(canvas, artwork);
                 console.log(`📊 ${artwork.title}: ${(similarity * 100).toFixed(1)}% match`);
-                
-                if (similarity > maxSimilarity) {
-                    maxSimilarity = similarity;
-                    bestMatch = artwork;
-                }
+                allResults.push({ artwork, similarity });
             }
 
-            console.log(`🏆 Best match: ${bestMatch ? bestMatch.title : 'None'} at ${(maxSimilarity * 100).toFixed(1)}%`);
+            // Sort by similarity (highest first)
+            allResults.sort((a, b) => b.similarity - a.similarity);
+            
+            // Get the best match AFTER all comparisons
+            const bestResult = allResults[0];
+            const bestMatch = bestResult.artwork;
+            const maxSimilarity = bestResult.similarity;
+
+            console.log(`🏆 Best match: ${bestMatch.title} at ${(maxSimilarity * 100).toFixed(1)}%`);
 
             // Show result if good match (lowered threshold to 20%)
-            if (bestMatch && maxSimilarity > 0.20) {
+            if (maxSimilarity > 0.20) {
                 console.log('✅ Match found! Showing AR view...');
                 currentMatch = bestMatch;
                 currentSimilarity = maxSimilarity;
@@ -758,10 +761,13 @@
             const material = new THREE.MeshBasicMaterial({
                 map: texture,
                 transparent: true,
-                opacity: 0.95
+                opacity: 0.95,
+                side: THREE.DoubleSide
             });
             
             textMesh = new THREE.Mesh(geometry, material);
+            textMesh.position.y = -2; // Position below center
+            textMesh.position.z = 0;
             scene.add(textMesh);
         }
 
@@ -770,13 +776,23 @@
             create3DText(artwork);
         }
 
-        // Animate 3D
+        // Animate 3D - AR style movement
         function animate3D() {
             requestAnimationFrame(animate3D);
             
             if (textMesh) {
-                textMesh.rotation.y += 0.01;
-                textMesh.position.y = Math.sin(Date.now() * 0.001) * 0.3;
+                // Slow rotation for AR effect
+                textMesh.rotation.y += 0.008;
+                
+                // Floating motion - up and down smoothly
+                const time = Date.now() * 0.0015;
+                textMesh.position.y = -2 + Math.sin(time) * 0.4;
+                
+                // Slight side-to-side sway for AR realism
+                textMesh.position.x = Math.sin(time * 0.7) * 0.2;
+                
+                // Slight depth oscillation
+                textMesh.position.z = Math.cos(time * 0.5) * 0.3;
             }
             
             renderer.render(scene, camera);
