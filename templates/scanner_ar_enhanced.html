@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArtScope - AR Enhanced Scanner</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: white;
+            overflow: hidden;
+        }
+
+        #scanner-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.5s;
+        }
+
+        #camera-feed.ar-mode {
+            opacity: 0.3;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .top-bar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        .scan-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            border: 3px solid rgba(255, 215, 0, 0.8);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.5);
+            animation: pulse 2s infinite;
+            transition: opacity 0.5s;
+        }
+
+        .scan-frame.hidden {
+            opacity: 0;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        .corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #FFD700;
+        }
+
+        .corner.tl { top: -3px; left: -3px; border-right: none; border-bottom: none; }
+        .corner.tr { top: -3px; right: -3px; border-left: none; border-bottom: none; }
+        .corner.bl { bottom: -3px; left: -3px; border-right: none; border-top: none; }
+        .corner.br { bottom: -3px; right: -3px; border-left: none; border-top: none; }
+
+        .scan-btn-container {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            pointer-events: auto;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .scan-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 4px solid white;
+            background: rgba(255, 215, 0, 0.9);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+        }
+
+        .scan-btn.locked {
+            background: rgba(255, 68, 68, 0.9);
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.6);
+        }
+
+        .scan-btn.scanning {
+            animation: scanning 1s infinite;
+        }
+
+        @keyframes scanning {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .lock-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 3px solid white;
+            background: rgba(128, 128, 128, 0.9);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s;
+        }
+
+        .lock-btn.active {
+            background: rgba(255, 215, 0, 0.9);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+        }
+
+        .language-selector {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .language-selector select {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .language-selector select option {
+            background: #000;
+            color: white;
+        }
+
+        /* AR View - Artwork Background + 3D Text */
+        #ar-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 30;
+            display: none;
+            pointer-events: none;
+        }
+
+        #ar-container.show {
+            display: block;
+        }
+
+        #artwork-background {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 90%;
+            max-height: 70%;
+            opacity: 0.4;
+            border-radius: 20px;
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.4);
+        }
+
+        #canvas-3d {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .artwork-info-overlay {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            padding: 15px 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            z-index: 40;
+            max-width: 85%;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .similarity-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .artwork-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .artwork-artist {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .tts-btn {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 215, 0, 0.9);
+            border: 2px solid white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            z-index: 50;
+            pointer-events: auto;
+            transition: all 0.3s;
+        }
+
+        .tts-btn:active {
+            transform: scale(0.95);
+        }
+
+        .tts-btn.speaking {
+            animation: speaking 0.5s infinite;
+        }
+
+        @keyframes speaking {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        .status-message {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 15px 30px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            display: none;
+        }
+
+        .status-message.show {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .location-btn {
+            position: absolute;
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 215, 0, 0.9);
+            border: 2px solid white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+            display: none;
+            pointer-events: auto;
+        }
+
+        .location-btn.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="scanner-container">
+        <!-- Camera Feed -->
+        <video id="camera-feed" autoplay playsinline></video>
+        <canvas id="capture-canvas"></canvas>
+
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="top-bar-content">
+                <button class="back-btn" onclick="goBack()">← Back</button>
+                <div style="font-weight: bold; text-shadow: 0 0 10px rgba(0,0,0,0.5);">
+                    🤖 AR Scanner
+                </div>
+            </div>
+        </div>
+
+        <!-- Language Selector -->
+        <div class="language-selector">
+            <select id="language-select">
+                <option value="en">🇬🇧 English</option>
+                <option value="es">🇪🇸 Español</option>
+                <option value="fr">🇫🇷 Français</option>
+                <option value="de">🇩🇪 Deutsch</option>
+                <option value="it">🇮🇹 Italiano</option>
+                <option value="pt">🇵🇹 Português</option>
+                <option value="hi">🇮🇳 हिंदी</option>
+                <option value="zh">🇨🇳 中文</option>
+                <option value="ja">🇯🇵 日本語</option>
+                <option value="ko">🇰🇷 한국어</option>
+            </select>
+        </div>
+
+        <!-- TTS Button -->
+        <button class="tts-btn" id="tts-btn" onclick="speakArtworkInfo()" style="display:none;">🔊</button>
+
+        <!-- Scan Frame -->
+        <div class="scan-frame" id="scan-frame">
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+        </div>
+
+        <!-- Scan Controls -->
+        <div class="scan-btn-container">
+            <button class="lock-btn" id="lock-btn" onclick="toggleLock()">🔓</button>
+            <button class="scan-btn" id="scan-btn" onclick="handleScan()">📷</button>
+        </div>
+
+        <!-- Status Message -->
+        <div class="status-message" id="status-message"></div>
+
+        <!-- Location Button -->
+        <button class="location-btn" id="location-btn" onclick="getUserLocationAndFetchArtworks()">
+            📍 Enable Location
+        </button>
+
+        <!-- AR Container (Artwork Background + 3D Text) -->
+        <div id="ar-container">
+            <img id="artwork-background" src="" alt="Artwork">
+            <canvas id="canvas-3d"></canvas>
+            <div class="artwork-info-overlay" id="artwork-info-overlay">
+                <div class="similarity-badge" id="similarity-badge"></div>
+                <div class="artwork-title" id="artwork-title"></div>
+                <div class="artwork-artist" id="artwork-artist"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let stream = null;
+        let userPosition = null;
+        let locationArtworks = [];
+        let scene, camera, renderer, textMesh;
+        let isLocked = false;
+        let autoScanInterval = null;
+        let currentMatch = null;
+        let currentSimilarity = 0;
+
+        // Initialize camera
+        async function initCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    } 
+                });
+                
+                const video = document.getElementById('camera-feed');
+                video.srcObject = stream;
+                
+                showStatus('📷 Camera ready! Getting your location...');
+                
+                // Auto-fetch location
+                setTimeout(getUserLocationAndFetchArtworks, 1000);
+            } catch (error) {
+                console.error('Camera error:', error);
+                showStatus('❌ Camera access denied. Please enable camera!', 'error');
+            }
+        }
+
+        // Get user location and fetch artworks
+        async function getUserLocationAndFetchArtworks() {
+            showStatus('📍 Getting your location...');
+            document.getElementById('location-btn').classList.remove('show');
+
+            if (!navigator.geolocation) {
+                showStatus('❌ Geolocation not supported!', 'error');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    userPosition = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+                    
+                    console.log('📍 Location:', userPosition);
+                    showStatus(`📍 Location found! Loading artworks...`);
+                    
+                    try {
+                        const response = await fetch('/api/scan/location-artworks/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(userPosition)
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success && data.artworks.length > 0) {
+                            locationArtworks = data.artworks;
+                            showStatus(`✅ ${data.count} artworks loaded! Start scanning!`, 'success');
+                            setTimeout(() => hideStatus(), 2000);
+                            
+                            // Start auto-scanning
+                            startAutoScan();
+                        } else {
+                            showStatus('⚠️ No artworks nearby. Move closer!', 'warning');
+                        }
+                    } catch (error) {
+                        console.error('Fetch error:', error);
+                        showStatus('❌ Failed to load artworks!', 'error');
+                    }
+                },
+                (error) => {
+                    console.error('Location error:', error);
+                    showStatus('❌ Location denied. Click button to retry.', 'error');
+                    document.getElementById('location-btn').classList.add('show');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // Toggle lock state
+        function toggleLock() {
+            isLocked = !isLocked;
+            const lockBtn = document.getElementById('lock-btn');
+            const scanBtn = document.getElementById('scan-btn');
+            
+            if (isLocked) {
+                lockBtn.textContent = '🔒';
+                lockBtn.classList.add('active');
+                scanBtn.classList.add('locked');
+                stopAutoScan();
+                showStatus('🔒 Locked! Match will persist', 'success');
+            } else {
+                lockBtn.textContent = '🔓';
+                lockBtn.classList.remove('active');
+                scanBtn.classList.remove('locked');
+                hideARView();
+                startAutoScan();
+                showStatus('🔓 Unlocked! Auto-scanning...', 'success');
+            }
+            
+            setTimeout(() => hideStatus(), 2000);
+        }
+
+        // Handle scan button
+        function handleScan() {
+            if (isLocked) {
+                // Unlock and resume scanning
+                toggleLock();
+            } else {
+                // Manual scan
+                captureAndMatch();
+            }
+        }
+
+        // Start auto-scanning
+        function startAutoScan() {
+            if (!autoScanInterval && !isLocked) {
+                autoScanInterval = setInterval(() => {
+                    if (!isLocked) {
+                        captureAndMatch();
+                    }
+                }, 1500); // Scan every 1.5 seconds
+            }
+        }
+
+        // Stop auto-scanning
+        function stopAutoScan() {
+            if (autoScanInterval) {
+                clearInterval(autoScanInterval);
+                autoScanInterval = null;
+            }
+        }
+
+        // Capture and match
+        async function captureAndMatch() {
+            if (locationArtworks.length === 0 || isLocked) return;
+
+            const video = document.getElementById('camera-feed');
+            const canvas = document.getElementById('capture-canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+
+            // Compare with all artworks
+            let bestMatch = null;
+            let maxSimilarity = 0;
+
+            for (const artwork of locationArtworks) {
+                const similarity = await compareWithArtwork(canvas, artwork);
+                
+                if (similarity > maxSimilarity) {
+                    maxSimilarity = similarity;
+                    bestMatch = artwork;
+                }
+            }
+
+            // Show result if good match
+            if (bestMatch && maxSimilarity > 0.30) {
+                currentMatch = bestMatch;
+                currentSimilarity = maxSimilarity;
+                showARView(bestMatch, maxSimilarity);
+            } else {
+                // No match - hide AR view
+                hideARView();
+            }
+        }
+
+        // Compare with artwork (simple pixel comparison)
+        async function compareWithArtwork(canvas, artwork) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    const compareSize = 100;
+                    
+                    const scannedCanvas = document.createElement('canvas');
+                    scannedCanvas.width = compareSize;
+                    scannedCanvas.height = compareSize;
+                    const scannedCtx = scannedCanvas.getContext('2d');
+                    scannedCtx.drawImage(canvas, 0, 0, compareSize, compareSize);
+                    const scannedData = scannedCtx.getImageData(0, 0, compareSize, compareSize).data;
+                    
+                    const artworkCanvas = document.createElement('canvas');
+                    artworkCanvas.width = compareSize;
+                    artworkCanvas.height = compareSize;
+                    const artworkCtx = artworkCanvas.getContext('2d');
+                    artworkCtx.drawImage(img, 0, 0, compareSize, compareSize);
+                    const artworkData = artworkCtx.getImageData(0, 0, compareSize, compareSize).data;
+                    
+                    let matchingPixels = 0;
+                    let totalPixels = compareSize * compareSize;
+                    const threshold = 30;
+                    
+                    for (let i = 0; i < scannedData.length; i += 4) {
+                        const rDiff = Math.abs(scannedData[i] - artworkData[i]);
+                        const gDiff = Math.abs(scannedData[i + 1] - artworkData[i + 1]);
+                        const bDiff = Math.abs(scannedData[i + 2] - artworkData[i + 2]);
+                        
+                        if (rDiff < threshold && gDiff < threshold && bDiff < threshold) {
+                            matchingPixels++;
+                        }
+                    }
+                    
+                    const similarity = matchingPixels / totalPixels;
+                    resolve(similarity);
+                };
+                
+                img.onerror = () => resolve(0);
+                img.src = artwork.image;
+            });
+        }
+
+        // Show AR view
+        function showARView(artwork, similarity) {
+            const arContainer = document.getElementById('ar-container');
+            const cameraFeed = document.getElementById('camera-feed');
+            const scanFrame = document.getElementById('scan-frame');
+            const ttsBtn = document.getElementById('tts-btn');
+            
+            // Show AR
+            arContainer.classList.add('show');
+            cameraFeed.classList.add('ar-mode');
+            scanFrame.classList.add('hidden');
+            ttsBtn.style.display = 'flex';
+            
+            // Set artwork background
+            document.getElementById('artwork-background').src = artwork.image;
+            
+            // Update info
+            document.getElementById('similarity-badge').textContent = `${(similarity * 100).toFixed(0)}% Match`;
+            document.getElementById('artwork-title').textContent = artwork.title;
+            document.getElementById('artwork-artist').textContent = `by ${artwork.artist_name || 'Unknown'}`;
+            
+            // Initialize 3D scene
+            if (!renderer) {
+                init3DScene(artwork);
+            } else {
+                update3DText(artwork);
+            }
+        }
+
+        // Hide AR view
+        function hideARView() {
+            const arContainer = document.getElementById('ar-container');
+            const cameraFeed = document.getElementById('camera-feed');
+            const scanFrame = document.getElementById('scan-frame');
+            const ttsBtn = document.getElementById('tts-btn');
+            
+            arContainer.classList.remove('show');
+            cameraFeed.classList.remove('ar-mode');
+            scanFrame.classList.remove('hidden');
+            ttsBtn.style.display = 'none';
+            
+            currentMatch = null;
+        }
+
+        // Initialize 3D scene
+        function init3DScene(artwork) {
+            const canvas = document.getElementById('canvas-3d');
+            
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.z = 5;
+            
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: canvas,
+                antialias: true,
+                alpha: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const pointLight = new THREE.PointLight(0xFFD700, 1.5, 100);
+            pointLight.position.set(5, 5, 5);
+            scene.add(pointLight);
+            
+            create3DText(artwork);
+            animate3D();
+        }
+
+        // Create 3D text
+        function create3DText(artwork) {
+            if (textMesh) {
+                scene.remove(textMesh);
+            }
+            
+            const textCanvas = document.createElement('canvas');
+            textCanvas.width = 1024;
+            textCanvas.height = 512;
+            const ctx = textCanvas.getContext('2d');
+            
+            // Gradient background
+            const gradient = ctx.createLinearGradient(0, 0, textCanvas.width, textCanvas.height);
+            gradient.addColorStop(0, 'rgba(255, 215, 0, 0.15)');
+            gradient.addColorStop(1, 'rgba(255, 165, 0, 0.15)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, textCanvas.width, textCanvas.height);
+            
+            // Title
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 56px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(artwork.title, textCanvas.width / 2, 60);
+            
+            // Artist
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '32px Arial';
+            ctx.fillText(`by ${artwork.artist_name || 'Unknown'}`, textCanvas.width / 2, 140);
+            
+            // Description
+            ctx.font = '24px Arial';
+            const description = artwork.description || 'No description';
+            const words = description.split(' ');
+            let line = '';
+            let y = 220;
+            
+            for (let word of words.slice(0, 30)) {
+                const testLine = line + word + ' ';
+                const metrics = ctx.measureText(testLine);
+                
+                if (metrics.width > textCanvas.width - 120 && line !== '') {
+                    ctx.fillText(line, textCanvas.width / 2, y);
+                    line = word + ' ';
+                    y += 35;
+                    if (y > 450) break;
+                } else {
+                    line = testLine;
+                }
+            }
+            ctx.fillText(line, textCanvas.width / 2, y);
+            
+            const texture = new THREE.CanvasTexture(textCanvas);
+            const geometry = new THREE.PlaneGeometry(8, 4);
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+                opacity: 0.95
+            });
+            
+            textMesh = new THREE.Mesh(geometry, material);
+            scene.add(textMesh);
+        }
+
+        // Update 3D text
+        function update3DText(artwork) {
+            create3DText(artwork);
+        }
+
+        // Animate 3D
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            if (textMesh) {
+                textMesh.rotation.y += 0.01;
+                textMesh.position.y = Math.sin(Date.now() * 0.001) * 0.3;
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        // Text-to-Speech
+        function speakArtworkInfo() {
+            if (!currentMatch) return;
+            
+            const ttsBtn = document.getElementById('tts-btn');
+            ttsBtn.classList.add('speaking');
+            
+            const lang = document.getElementById('language-select').value;
+            const text = `${currentMatch.title}. By ${currentMatch.artist_name || 'Unknown artist'}. ${currentMatch.description || ''}`;
+            
+            // Use Web Speech API
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = getLangCode(lang);
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                
+                utterance.onend = () => {
+                    ttsBtn.classList.remove('speaking');
+                };
+                
+                utterance.onerror = () => {
+                    ttsBtn.classList.remove('speaking');
+                    showStatus('❌ TTS not available', 'error');
+                    setTimeout(() => hideStatus(), 2000);
+                };
+                
+                window.speechSynthesis.speak(utterance);
+            } else {
+                ttsBtn.classList.remove('speaking');
+                showStatus('❌ TTS not supported', 'error');
+                setTimeout(() => hideStatus(), 2000);
+            }
+        }
+
+        // Get language code for TTS
+        function getLangCode(lang) {
+            const codes = {
+                'en': 'en-US',
+                'es': 'es-ES',
+                'fr': 'fr-FR',
+                'de': 'de-DE',
+                'it': 'it-IT',
+                'pt': 'pt-PT',
+                'hi': 'hi-IN',
+                'zh': 'zh-CN',
+                'ja': 'ja-JP',
+                'ko': 'ko-KR'
+            };
+            return codes[lang] || 'en-US';
+        }
+
+        // Status messages
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.textContent = message;
+            statusDiv.classList.add('show');
+        }
+
+        function hideStatus() {
+            document.getElementById('status-message').classList.remove('show');
+        }
+
+        // Go back
+        function goBack() {
+            stopAutoScan();
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            window.location.href = '/';
+        }
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            if (camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+
+        // Initialize
+        window.addEventListener('load', initCamera);
+
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            stopAutoScan();
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

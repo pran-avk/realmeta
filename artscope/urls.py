@@ -50,7 +50,7 @@ urlpatterns = [
     # Frontend Templates (No map requirement)
     path('', TemplateView.as_view(template_name='index.html'), name='index'),
     path('scanner/', TemplateView.as_view(template_name='scanner.html'), name='scanner'),
-    path('scanner-ai/', TemplateView.as_view(template_name='scanner_client_side.html'), name='scanner_ai'),
+    path('scanner-ai/', TemplateView.as_view(template_name='scanner_ar_enhanced.html'), name='scanner_ai'),
     path('artwork-details/', TemplateView.as_view(template_name='artwork_details.html'), name='artwork_details'),
 ]
 
